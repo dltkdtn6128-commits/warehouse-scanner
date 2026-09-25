@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+  >
+
+  <title>창고 부품 바코드 스캐너</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, sans-serif;
+    }
+
+    #scanner {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    #reader {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    #reader video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+
+    #title {
+      position: absolute;
+      z-index: 20;
+      top: 30px;
+      left: 0;
+      width: 100%;
+      padding: 0 20px;
+      text-align: center;
+      color: white;
+      font-size: 27px;
+      font-weight: bold;
+      text-shadow: 1px 1px 6px #000;
+      pointer-events: none;
+    }
+
+    #guide {
+      position: absolute;
+      z-index: 20;
+
+      width: 86%;
+      max-width: 600px;
+      height: 180px;
+
+      left: 50%;
+      top: 50%;
+
+      transform: translate(-50%, -50%);
+
+      border: 5px solid red;
+      border-radius: 18px;
+
+      pointer-events: none;
+    }
+
+    #line {
+      position: absolute;
+
+      left: 4%;
+      top: 50%;
+
+      width: 92%;
+      height: 5px;
+
+      transform: translateY(-50%);
+
+      background: red;
+
+      box-shadow:
+        0 0 8px red,
+        0 0 16px red;
+    }
+
+    #message {
+      position: absolute;
+      z-index: 20;
+
+      left: 0;
+      top: calc(50% + 125px);
+
+      width: 100%;
+
+      padding: 0 20px;
+
+      text-align: center;
+
+      color: white;
+
+      font-size: 23px;
+      font-weight: bold;
+      line-height: 1.5;
+
+      text-shadow:
+        1px 1px 5px #000,
+        -1px -1px 5px #000;
+
+      pointer-events: none;
+    }
+
+    #resultBox {
+      display: none;
+
+      position: absolute;
+      z-index: 30;
+
+      left: 50%;
+      top: 50%;
+
+      transform: translate(-50%, -50%);
+
+      width: 88%;
+      max-width: 600px;
+
+      padding: 35px 25px;
+
+      background: white;
+
+      border-radius: 22px;
+
+      text-align: center;
+    }
+
+    #resultTitle {
+      font-size: 30px;
+      font-weight: bold;
+      margin-bottom: 25px;
+    }
+
+    #resultBarcode {
+      font-size: 25px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    #againButton {
+      width: 100%;
+      min-height: 85px;
+
+      margin-top: 30px;
+
+      border: none;
+      border-radius: 18px;
+
+      background: #e8f5e9;
+
+      font-size: 26px;
+      font-weight: bold;
+
+      cursor: pointer;
+    }
+
+    #errorBox {
+      display: none;
+
+      position: absolute;
+      z-index: 40;
+
+      left: 50%;
+      top: 50%;
+
+      transform: translate(-50%, -50%);
+
+      width: 88%;
+      max-width: 600px;
+
+      padding: 30px 25px;
+
+      background: white;
+
+      border-radius: 22px;
+
+      text-align: center;
+
+      font-size: 22px;
+      line-height: 1.6;
+    }
+
+    #retryButton {
+      width: 100%;
+      min-height: 80px;
+
+      margin-top: 25px;
+
+      border: none;
+      border-radius: 18px;
+
+      background: #fff3e0;
+
+      font-size: 25px;
+      font-weight: bold;
+
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="scanner">
+
+  <div id="reader"></div>
+
+  <div id="title">
+    📷 바코드 자동 스캔
+  </div>
+
+  <div id="guide">
+    <div id="line"></div>
+  </div>
+
+  <div id="message">
+    원하는 부품의 바코드를<br>
+    빨간 박스 중앙에 맞춰주세요
+  </div>
+
+
+  <div id="resultBox">
+
+    <div id="resultTitle">
+      ✅ 바코드 인식 성공
+    </div>
+
+    <div id="resultBarcode"></div>
+
+    <button
+      id="againButton"
+      onclick="restartScanner()"
+    >
+      📷 다시 스캔
+    </button>
+
+  </div>
+
+
+  <div id="errorBox">
+
+    <div id="errorMessage">
+      카메라를 실행하지 못했습니다.
+    </div>
+
+    <button
+      id="retryButton"
+      onclick="location.reload()"
+    >
+      🔄 다시 시도
+    </button>
+
+  </div>
+
+</div>
+
+
+<script
+  src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
+</script>
+
+
+<script>
+
+let html5QrCode = null;
+
+let scannerRunning = false;
+
+let barcodeDetected = false;
+
+
+/* =====================================
+   페이지가 열리면 자동으로 카메라 시작
+   ===================================== */
+
+window.addEventListener(
+  "load",
+  function() {
+
+    startScanner();
+
+  }
+);
+
+
+/* =====================================
+   카메라 시작
+   ===================================== */
+
+async function startScanner() {
+
+  barcodeDetected = false;
+
+  document
+    .getElementById("resultBox")
+    .style.display =
+    "none";
+
+  document
+    .getElementById("errorBox")
+    .style.display =
+    "none";
+
+  document
+    .getElementById("guide")
+    .style.display =
+    "block";
+
+  document
+    .getElementById("message")
+    .style.display =
+    "block";
+
+
+  try {
+
+    if (
+      typeof Html5Qrcode ===
+      "undefined"
+    ) {
+
+      throw new Error(
+        "바코드 스캔 프로그램을 불러오지 못했습니다."
+      );
+    }
+
+
+    html5QrCode =
+      new Html5Qrcode(
+        "reader",
+        false
+      );
+
+
+    const config = {
+
+      fps: 12,
+
+      qrbox: function(
+        viewfinderWidth,
+        viewfinderHeight
+      ) {
+
+        let width =
+          Math.floor(
+            viewfinderWidth * 0.86
+          );
+
+        let height =
+          180;
+
+
+        if (
+          height >
+          viewfinderHeight * 0.30
+        ) {
+
+          height =
+            Math.floor(
+              viewfinderHeight * 0.30
+            );
+        }
+
+
+        return {
+
+          width: width,
+
+          height: height
+
+        };
+      },
+
+      disableFlip: true
+    };
+
+
+    await html5QrCode.start(
+
+      {
+        facingMode: "environment"
+      },
+
+      config,
+
+      barcodeSuccess,
+
+      function(errorMessage) {
+
+        // 아직 바코드를 찾지 못한 경우
+        // 계속 자동 검색
+
+      }
+
+    );
+
+
+    scannerRunning =
+      true;
+
+
+  } catch (error) {
+
+    scannerRunning =
+      false;
+
+
+    document
+      .getElementById("guide")
+      .style.display =
+      "none";
+
+    document
+      .getElementById("message")
+      .style.display =
+      "none";
+
+
+    document
+      .getElementById("errorBox")
+      .style.display =
+      "block";
+
+
+    document
+      .getElementById("errorMessage")
+      .innerHTML =
+
+      "카메라를 실행하지 못했습니다.<br><br>" +
+
+      "휴대폰에서 이 사이트의<br>" +
+
+      "<b>카메라 권한을 허용</b>해주세요.<br><br>" +
+
+      "오류 내용:<br>" +
+
+      escapeHtml(
+        error.message ||
+        String(error)
+      );
+  }
+}
+
+
+/* =====================================
+   바코드 인식 성공
+   ===================================== */
+
+async function barcodeSuccess(
+  decodedText,
+  decodedResult
+) {
+
+  if (
+    barcodeDetected
+  ) {
+
+    return;
+  }
+
+
+  barcodeDetected =
+    true;
+
+
+  await stopScanner();
+
+
+  const barcode =
+    convertCompanyBarcode(
+      decodedText
+    );
+
+
+  document
+    .getElementById("guide")
+    .style.display =
+    "none";
+
+
+  document
+    .getElementById("message")
+    .style.display =
+    "none";
+
+
+  document
+    .getElementById("resultBarcode")
+    .innerHTML =
+
+    "읽은 바코드<br><br>" +
+
+    "<b>" +
+
+    escapeHtml(
+      barcode
+    ) +
+
+    "</b>";
+
+
+  document
+    .getElementById("resultBox")
+    .style.display =
+    "block";
+}
+
+
+/* =====================================
+   회사 바코드 변환
+
+   +F 제거
+   K 추가
+   숫자 치환
+   ===================================== */
+
+function convertCompanyBarcode(
+  rawBarcode
+) {
+
+  const result =
+    String(
+      rawBarcode || ""
+    ).trim();
+
+
+  const map = {
+
+    "0": "6",
+    "1": "2",
+    "2": "4",
+    "3": "5",
+    "4": "1",
+    "5": "3",
+    "6": "7",
+    "7": "0",
+    "8": "9",
+    "9": "8"
+
+  };
+
+
+  if (
+    result.startsWith("+F")
+  ) {
+
+    const numbers =
+      result.substring(2);
+
+
+    let kCode =
+      "K";
+
+
+    for (
+      let i = 0;
+      i < numbers.length;
+      i++
+    ) {
+
+      kCode +=
+        map[numbers[i]] ??
+        numbers[i];
+
+    }
+
+
+    return kCode;
+  }
+
+
+  return result;
+}
+
+
+/* =====================================
+   카메라 종료
+   ===================================== */
+
+async function stopScanner() {
+
+  try {
+
+    if (
+      html5QrCode &&
+      scannerRunning
+    ) {
+
+      await html5QrCode.stop();
+
+    }
+
+  } catch (error) {
+
+  }
+
+
+  try {
+
+    if (
+      html5QrCode
+    ) {
+
+      await html5QrCode.clear();
+
+    }
+
+  } catch (error) {
+
+  }
+
+
+  html5QrCode =
+    null;
+
+
+  scannerRunning =
+    false;
+}
+
+
+/* =====================================
+   다시 스캔
+   ===================================== */
+
+async function restartScanner() {
+
+  await stopScanner();
+
+  document
+    .getElementById("reader")
+    .innerHTML =
+    "";
+
+
+  startScanner();
+}
+
+
+/* =====================================
+   HTML 안전 처리
+   ===================================== */
+
+function escapeHtml(
+  value
+) {
+
+  return String(
+    value ?? ""
+  )
+
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
+}
+
+</script>
+
+</body>
+</html>
