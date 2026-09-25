@@ -165,7 +165,24 @@
         rgba(0,0,0,0)
       );
     }
+#photoScanButton {
+  display: block;
+  width: 100%;
+  min-height: 66px;
 
+  margin-bottom: 14px;
+
+  border: none;
+  border-radius: 18px;
+
+  background: #ff9800;
+  color: white;
+
+  font-size: 22px;
+  font-weight: bold;
+
+  cursor: pointer;
+}
     #cancelButton {
       display: none;
       width: 100%;
@@ -309,6 +326,22 @@
     </div>
 
     <div id="bottomArea">
+      <button
+  id="photoScanButton"
+  type="button"
+  onclick="document.getElementById('photoInput').click()"
+>
+  📸 자동인식 안될 때 촬영으로 스캔
+</button>
+
+<input
+  id="photoInput"
+  type="file"
+  accept="image/*"
+  capture="environment"
+  style="display:none"
+  onchange="scanPhoto(this.files[0])"
+>
       <button
         id="cancelButton"
         type="button"
@@ -962,6 +995,72 @@
      * 취소
      *************************************************/
 
+    async function scanPhoto(file) {
+
+  if (!file) {
+    return;
+  }
+
+  try {
+
+    // 자동스캔 카메라 잠시 정지
+    await stopScanner();
+
+    document.getElementById("message").innerHTML =
+      "📸 촬영한 사진에서 바코드를 찾고 있습니다...";
+
+    const photoScanner =
+      new Html5Qrcode("reader");
+
+    const decodedText =
+      await photoScanner.scanFile(
+        file,
+        true
+      );
+
+    const convertedBarcode =
+      convertCompanyBarcode(
+        String(decodedText || "").trim()
+      );
+
+    if (!convertedBarcode) {
+      throw new Error("바코드를 찾지 못했습니다.");
+    }
+
+    showSuccess(convertedBarcode);
+
+    if (
+      mode === "scan" ||
+      mode === "in" ||
+      mode === "out"
+    ) {
+
+      setTimeout(function () {
+
+        returnToWarehouse(
+          convertedBarcode
+        );
+
+      }, 650);
+
+    }
+
+  } catch (error) {
+
+    console.error(error);
+
+    document.getElementById("message").innerHTML =
+      "⚠️ 사진에서 바코드를 찾지 못했습니다.<br>버튼을 눌러 다시 촬영해주세요.";
+
+    document.getElementById("guideBox").style.display =
+      "block";
+
+  }
+
+  // 같은 사진을 다시 선택할 수도 있게 초기화
+  document.getElementById("photoInput").value = "";
+
+}
     async function cancelScan() {
 
       await stopScanner();
