@@ -680,7 +680,20 @@ async function acceptDetected(rawValue, source) {
     return;
   }
 
-  showStatus("✅ 인식 완료", escapeHtml(converted));
+  // 인식이 확정되면 모든 모드에서 K번호 자동 복사 시도
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(converted);
+    copied = true;
+  } catch (e) {
+    // 일부 모바일 브라우저에서는 클립보드 권한 때문에 실패할 수 있음.
+    // 이 경우 아래 상태창에 번호를 그대로 표시해 수동 복사도 가능하게 유지.
+  }
+
+  showStatus(
+    copied ? "✅ 인식 완료 · 번호 자동복사됨" : "✅ 인식 완료",
+    escapeHtml(converted)
+  );
 
   if (mode === "scan" || mode === "in" || mode === "out") {
     setTimeout(function() {
@@ -690,11 +703,10 @@ async function acceptDetected(rawValue, source) {
   }
 
   if (mode === "number") {
-    try {
-      await navigator.clipboard.writeText(converted);
-      alert("✅ 번호가 복사되었습니다.\n\n" + converted);
-    } catch (e) {
-      prompt("아래 번호를 복사해주세요.", converted);
+    if (copied) {
+      alert("✅ 번호가 자동으로 복사되었습니다.\n\n" + converted);
+    } else {
+      prompt("자동 복사가 차단되었습니다. 아래 번호를 복사해주세요.", converted);
     }
     cancelScan();
     return;
