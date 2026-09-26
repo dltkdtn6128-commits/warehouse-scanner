@@ -100,8 +100,7 @@
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-</head>
+  </head>
 
 <body>
 <div class="wrap">
@@ -144,7 +143,7 @@
     <div id="statusValue"></div>
   </div>
 
-  <div class="small"><b>현장 빠른 인식 v3</b><br>
+  <div class="small"><b>QR 전용 초고속 인식 v4</b><br>
     QR 원본번호가 +F로 시작하면 기존 회사 규칙대로 K번호로 자동 변환합니다.<br>
     OCR 결과는 자동 확정하지 않고 반드시 번호 확인 후 처리합니다.
   </div>
@@ -154,7 +153,7 @@
   </button>
 </div>
 
-<div id="busy">사진을 빠르게 분석하고 있습니다.<br>원본 + 핵심 보정만 확인합니다.</div>
+<div id="busy">QR코드만 빠르게 분석하고 있습니다.<br>원본 + 핵심 QR 보정만 확인합니다.</div>
 
 <script>
 const DEFAULT_RETURN_URL =
@@ -456,13 +455,12 @@ function buildRobustVariants(source) {
   const gray = toGray(source.data);
   const stretched = contrastStretch(gray);
   const blurred = gaussianBlur3x3(stretched, source.width, source.height);
-  const sharp = unsharpMask(stretched, blurred, 1.6, 0.6);
+  const sharp = unsharpMask(stretched, blurred, 1.7, 0.7);
 
+  // 전체 사진: QR 형태 보존에 효과적인 핵심 후보만 사용
   variants.push(makeGrayVariant(gray, source.width, source.height));
   variants.push(makeGrayVariant(stretched, source.width, source.height));
   variants.push(makeGrayVariant(sharp, source.width, source.height));
-
-  // 한 손 촬영에서 흔한 그림자/명암 차이만 빠르게 보정
   variants.push(makeGrayVariant(
     adaptiveThreshold(sharp, source.width, source.height, 31, 5),
     source.width, source.height
@@ -472,8 +470,38 @@ function buildRobustVariants(source) {
     source.width, source.height
   ));
 
-  // 너무 많은 후보를 돌리지 않고, 유효한 보정 5개만 사용
+  // QR이 작게 찍힌 경우를 위해 중앙 80%만 1.5배 확대하여 빠르게 재시도
+  const crop = cropCenterCanvas(source.canvas, 0.80, 1.5);
+  const cropData = crop.ctx.getImageData(0, 0, crop.canvas.width, crop.canvas.height);
+  const cg = toGray(cropData);
+  const cs = contrastStretch(cg);
+  const cb = gaussianBlur3x3(cs, crop.canvas.width, crop.canvas.height);
+  const csharp = unsharpMask(cs, cb, 1.7, 0.7);
+
+  variants.push(makeGrayVariant(cs, crop.canvas.width, crop.canvas.height));
+  variants.push(makeGrayVariant(csharp, crop.canvas.width, crop.canvas.height));
+  variants.push(makeGrayVariant(
+    adaptiveThreshold(csharp, crop.canvas.width, crop.canvas.height, 31, 5),
+    crop.canvas.width, crop.canvas.height
+  ));
+
   return variants;
+}
+
+function cropCenterCanvas(sourceCanvas, ratio, scale) {
+  const sw = Math.max(1, Math.floor(sourceCanvas.width * ratio));
+  const sh = Math.max(1, Math.floor(sourceCanvas.height * ratio));
+  const sx = Math.floor((sourceCanvas.width - sw) / 2);
+  const sy = Math.floor((sourceCanvas.height - sh) / 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.floor(sw * scale);
+  canvas.height = Math.floor(sh * scale);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return { canvas, ctx };
 }
 function toGray(imageData) {
   const src = imageData.data;
