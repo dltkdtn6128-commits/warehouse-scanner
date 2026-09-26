@@ -101,6 +101,7 @@
     }
 
     #guideBox {
+      display: none !important;
       position: absolute;
       z-index: 15;
 
@@ -144,6 +145,22 @@
       font-size: 17px;
       font-weight: bold;
       text-shadow: 0 2px 5px #000;
+    }
+
+
+    #simpleInfo {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      top: 42%;
+      transform: translateY(-50%);
+      z-index: 10;
+      color: white;
+      text-align: center;
+      font-size: 20px;
+      line-height: 1.7;
+      font-weight: bold;
+      opacity: 0.92;
     }
 
     #bottomArea {
@@ -303,7 +320,7 @@
     <div id="topArea">
 
       <div id="title">
-        📷 바코드 자동 스캔
+        📦 바코드 / QR 입력
       </div>
 
       <div id="modeText">
@@ -311,8 +328,8 @@
       </div>
 
       <div id="message">
-        원하는 부품의 바코드를<br>
-        빨간 박스 중앙에 맞춰주세요
+        아래에서 촬영 스캔 또는<br>
+        직접 입력을 선택해주세요
       </div>
 
     </div>
@@ -325,6 +342,12 @@
       </div>
     </div>
 
+
+    <div id="simpleInfo">
+      자동 카메라 인식은 사용하지 않습니다.<br>
+      아래 버튼을 이용해주세요.
+    </div>
+
 <div id="bottomArea">
 
   <button
@@ -332,7 +355,7 @@
     type="button"
     onclick="document.getElementById('photoInput').click()"
   >
-    📸 자동인식이 안되면 촬영으로 스캔
+    📸 촬영으로 바코드 / QR 스캔
   </button>
 
   <input
@@ -499,7 +522,8 @@
 
         }
 
-        startScanner();
+        // 자동 카메라 스캔은 사용하지 않습니다.
+        // 촬영 스캔 또는 직접 입력을 사용합니다.
 
       }
     );
@@ -640,8 +664,6 @@
 
         scannerRunning = true;
 
-        // html5-qrcode가 놓치는 작은 QR을 브라우저 기본 QR 판독기로 보조 인식
-        startQrAssist();
 
       }
       catch (error) {
@@ -1149,7 +1171,7 @@
     await stopScanner();
 
     document.getElementById("message").innerHTML =
-      "📸 촬영한 사진에서 바코드를 찾고 있습니다...";
+      "📸 촬영한 사진에서 바코드 / QR을 찾고 있습니다...";
 
     const photoScanner =
       new Html5Qrcode("reader");
@@ -1192,7 +1214,7 @@
     console.error(error);
 
     document.getElementById("message").innerHTML =
-      "⚠️ 사진에서 바코드를 찾지 못했습니다.<br>버튼을 눌러 다시 촬영해주세요.";
+      "⚠️ 사진에서 바코드 / QR을 찾지 못했습니다.<br>버튼을 눌러 다시 촬영해주세요.";
 
     document.getElementById("guideBox").style.display =
       "block";
