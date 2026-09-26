@@ -428,19 +428,41 @@ else {
     let numberQrReader = null;
 let numberDetected = false;
 
-await numberQrReader.start(
-  {
-    facingMode: "environment"
-  },
-  {
-    fps: 30,
-    qrbox: function(viewfinderWidth, viewfinderHeight) {
-      return {
-        width: Math.floor(viewfinderWidth * 0.9),
-        height: Math.floor(viewfinderHeight * 0.9)
-      };
-    }
-  },
+async function startNumberReader() {
+
+  document.getElementById("modeText").textContent =
+    "📷 번호 읽기";
+
+  document.getElementById("message").innerHTML =
+    "보드의 QR 코드를 카메라에 보여주세요.<br>" +
+    "QR을 읽으면 K번호로 자동 변환됩니다.";
+
+  document.getElementById("numberReader").style.display =
+    "block";
+
+  document.querySelector(".inputCard").style.display =
+    "none";
+
+  numberDetected = false;
+
+  try {
+
+    numberQrReader =
+      new Html5Qrcode("qrReader");
+
+    await numberQrReader.start(
+      {
+        facingMode: "environment"
+      },
+      {
+        fps: 30,
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+          return {
+            width: Math.floor(viewfinderWidth * 0.9),
+            height: Math.floor(viewfinderHeight * 0.9)
+          };
+        }
+      },
 
       async function(decodedText) {
 
@@ -497,7 +519,7 @@ await numberQrReader.start(
       },
 
       function(errorMessage) {
-        // QR을 찾을 때까지 계속 카메라 유지
+        // QR을 찾을 때까지 카메라 유지
       }
     );
 
