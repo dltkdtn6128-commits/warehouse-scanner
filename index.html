@@ -572,27 +572,25 @@
         const config = {
           fps: 12,
 
+          // 바코드와 QR을 모두 자동 인식할 수 있도록
+          // 화면 중앙의 넓은 영역 전체를 스캔 대상으로 사용
           qrbox: function (
             viewfinderWidth,
             viewfinderHeight
           ) {
 
-            let width =
+            const width =
               Math.floor(
-                viewfinderWidth * 0.96
+                viewfinderWidth * 0.92
               );
 
-            let height = 300;
-
-            if (
-              height >
-              viewfinderHeight * 0.50
-            ) {
-              height =
-                Math.floor(
-                  viewfinderHeight * 0.30
-                );
-            }
+            const height =
+              Math.floor(
+                Math.min(
+                  viewfinderHeight * 0.62,
+                  width
+                )
+              );
 
             return {
               width: width,
@@ -600,7 +598,9 @@
             };
           },
 
-          disableFlip: true
+          // QR/바코드 종류를 제한하지 않고 html5-qrcode가
+          // 지원하는 형식을 자동 판독
+          disableFlip: false
         };
 
         const cameras =
