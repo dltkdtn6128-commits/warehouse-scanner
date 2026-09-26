@@ -93,7 +93,10 @@
       line-height: 1.6;
     }
     .small { font-size: 14px; color: #aaa; text-align: center; margin-top: 8px; line-height: 1.45; }
-  </style>
+  
+  /* 현장용 빠른 버전: 자동 실시간 스캔 UI 숨김 */
+  #reader, #cameraArea, #scanArea, .camera-area, .scan-area { display:none !important; }
+</style>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -106,8 +109,8 @@
   <div id="modeText">부품 확인</div>
 
   <div id="message">
-    한 손으로 편하게 촬영하세요.<br>
-    아래 <b>촬영해서 강력 인식</b>은 사진 한 장을 여러 방식으로 자동 분석합니다.
+    현장용 빠른 인식 모드입니다.<br>
+    <b>촬영해서 강력 인식</b>으로 사진 한 장을 빠르게 분석합니다.
   </div>
 
   <div id="reader"></div>
@@ -141,7 +144,7 @@
     <div id="statusValue"></div>
   </div>
 
-  <div class="small"><b>현장 인식 강화 v2</b><br>
+  <div class="small"><b>현장 빠른 인식 v3</b><br>
     QR 원본번호가 +F로 시작하면 기존 회사 규칙대로 K번호로 자동 변환합니다.<br>
     OCR 결과는 자동 확정하지 않고 반드시 번호 확인 후 처리합니다.
   </div>
@@ -151,7 +154,7 @@
   </button>
 </div>
 
-<div id="busy">사진 한 장을 여러 방식으로 분석합니다.<br>확대 · 명암 · 선명화 · 그림자 보정 · 반전까지 자동 시도합니다.</div>
+<div id="busy">사진을 빠르게 분석하고 있습니다.<br>원본 + 핵심 보정만 확인합니다.</div>
 
 <script>
 const DEFAULT_RETURN_URL =
@@ -318,16 +321,7 @@ async function analyzePhoto(file) {
     // -> adaptive threshold, then QR retry.
     const variants = buildRobustVariants(imageData);
 
-    for (let i = 0; i < variants.length; i++) {
-      const variant = variants[i];
-
-      if (i % 4 === 0) {
-        document.getElementById("busy").innerHTML =
-          "사진 한 장을 여러 방식으로 분석 중입니다.<br>" +
-          "QR 보정 " + (i + 1) + " / " + variants.length;
-        await new Promise(r => setTimeout(r, 0));
-      }
-
+    for (const variant of variants) {
       const qr = tryJsQr(variant.data, variant.width, variant.height);
       if (qr) {
         setBusy(false);
@@ -459,112 +453,28 @@ function tryJsQr(imageData, width, height) {
 
 function buildRobustVariants(source) {
   const variants = [];
-  const seen = new Set();
+  const gray = toGray(source.data);
+  const stretched = contrastStretch(gray);
+  const blurred = gaussianBlur3x3(stretched, source.width, source.height);
+  const sharp = unsharpMask(stretched, blurred, 1.6, 0.6);
 
-  function addGray(gray, w, h, label) {
-    const key = label + ":" + w + "x" + h;
-    if (seen.has(key)) return;
-    seen.add(key);
-    const v = makeGrayVariant(gray, w, h);
-    v.label = label;
-    variants.push(v);
-  }
+  variants.push(makeGrayVariant(gray, source.width, source.height));
+  variants.push(makeGrayVariant(stretched, source.width, source.height));
+  variants.push(makeGrayVariant(sharp, source.width, source.height));
 
-  // 원본 전체 이미지
-  const baseGray = toGray(source.data);
-  const baseStretch = contrastStretch(baseGray);
+  // 한 손 촬영에서 흔한 그림자/명암 차이만 빠르게 보정
+  variants.push(makeGrayVariant(
+    adaptiveThreshold(sharp, source.width, source.height, 31, 5),
+    source.width, source.height
+  ));
+  variants.push(makeGrayVariant(
+    adaptiveThreshold(sharp, source.width, source.height, 51, 7),
+    source.width, source.height
+  ));
 
-  addGray(baseGray, source.width, source.height, "원본 흑백");
-  addGray(baseStretch, source.width, source.height, "명암 보정");
-
-  // 흔들림에 대응하는 서로 다른 강도의 언샤프 마스킹
-  const blurBase = gaussianBlur3x3(baseStretch, source.width, source.height);
-  const sharpSoft = unsharpMask(baseStretch, blurBase, 1.45, 0.45);
-  const sharpStrong = unsharpMask(baseStretch, blurBase, 2.0, 1.0);
-
-  addGray(sharpSoft, source.width, source.height, "약한 선명화");
-  addGray(sharpStrong, source.width, source.height, "강한 선명화");
-
-  // 그림자/조명 차이에 대응하는 여러 크기의 적응형 이진화
-  [21, 31, 51, 71].forEach(function(block) {
-    [3, 5, 8].forEach(function(C) {
-      addGray(
-        adaptiveThreshold(sharpSoft, source.width, source.height, block, C),
-        source.width,
-        source.height,
-        "이진화-" + block + "-" + C
-      );
-    });
-  });
-
-  // QR이 사진의 일부에 작게 찍혀도 잡도록 중앙을 넓게 잘라 확대
-  const crops = [
-    { x: 0.05, y: 0.05, w: 0.90, h: 0.90, name: "넓은영역" },
-    { x: 0.12, y: 0.12, w: 0.76, h: 0.76, name: "중앙영역" },
-    { x: 0.20, y: 0.20, w: 0.60, h: 0.60, name: "중앙확대" }
-  ];
-
-  crops.forEach(function(c) {
-    const crop = cropCanvas(source.canvas, c.x, c.y, c.w, c.h, 2.0);
-    const img = crop.ctx.getImageData(0, 0, crop.canvas.width, crop.canvas.height);
-    const g = toGray(img);
-    const s = contrastStretch(g);
-    const b = gaussianBlur3x3(s, crop.canvas.width, crop.canvas.height);
-    const sh = unsharpMask(s, b, 1.7, 0.7);
-
-    addGray(s, crop.canvas.width, crop.canvas.height, c.name + "-명암");
-    addGray(sh, crop.canvas.width, crop.canvas.height, c.name + "-선명");
-    addGray(
-      adaptiveThreshold(sh, crop.canvas.width, crop.canvas.height, 31, 5),
-      crop.canvas.width,
-      crop.canvas.height,
-      c.name + "-이진31"
-    );
-    addGray(
-      adaptiveThreshold(sh, crop.canvas.width, crop.canvas.height, 51, 7),
-      crop.canvas.width,
-      crop.canvas.height,
-      c.name + "-이진51"
-    );
-  });
-
-  // 검정/흰색이 뒤집혀 보이는 상황도 자동 시도
-  const current = variants.slice();
-  current.forEach(function(v) {
-    if (variants.length >= 38) return;
-    const inv = invertGrayImageData(v.data);
-    addGray(inv, v.width, v.height, (v.label || "보정") + "-반전");
-  });
-
-  return variants.slice(0, 38);
+  // 너무 많은 후보를 돌리지 않고, 유효한 보정 5개만 사용
+  return variants;
 }
-
-function cropCanvas(sourceCanvas, rx, ry, rw, rh, scale) {
-  const sx = Math.max(0, Math.floor(sourceCanvas.width * rx));
-  const sy = Math.max(0, Math.floor(sourceCanvas.height * ry));
-  const sw = Math.max(1, Math.floor(sourceCanvas.width * rw));
-  const sh = Math.max(1, Math.floor(sourceCanvas.height * rh));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.floor(sw * scale));
-  canvas.height = Math.max(1, Math.floor(sh * scale));
-
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-
-  return { canvas, ctx };
-}
-
-function invertGrayImageData(imageData) {
-  const out = new Uint8ClampedArray(imageData.width * imageData.height);
-  for (let p = 0, i = 0; p < out.length; p++, i += 4) {
-    out[p] = 255 - imageData.data[i];
-  }
-  return out;
-}
-
 function toGray(imageData) {
   const src = imageData.data;
   const gray = new Uint8ClampedArray(imageData.width * imageData.height);
