@@ -1082,6 +1082,55 @@
   document.getElementById("photoInput").value = "";
 
 }
+    function manualInput() {
+
+  const input = prompt(
+    "바코드 또는 QR 번호를 직접 입력해주세요."
+  );
+
+  // 취소
+  if (input === null) {
+    return;
+  }
+
+  const rawBarcode =
+    String(input).trim();
+
+  // 빈칸
+  if (!rawBarcode) {
+    alert("바코드 또는 QR 번호를 입력해주세요.");
+    return;
+  }
+
+  // 회사 바코드 형식이면 기존 방식대로 변환
+  const convertedBarcode =
+    convertCompanyBarcode(rawBarcode);
+
+  if (!convertedBarcode) {
+    alert("입력한 번호를 확인해주세요.");
+    return;
+  }
+
+  // 창고관리 앱에서 들어온 경우
+  if (
+    mode === "scan" ||
+    mode === "in" ||
+    mode === "out"
+  ) {
+
+    returnToWarehouse(
+      convertedBarcode
+    );
+
+    return;
+  }
+
+  // 테스트 모드일 경우
+  showSuccess(
+    convertedBarcode
+  );
+}
+    
     async function cancelScan() {
 
       await stopScanner();
