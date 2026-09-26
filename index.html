@@ -135,6 +135,7 @@
       line-height: 1.5;
     }
   </style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 
 <body>
@@ -227,7 +228,11 @@
 
     window.addEventListener("load", function () {
       setModeDisplay();
-
+  
+      if (mode === "number") {
+    startNumberReader();
+    return;
+  }
       const input =
         document.getElementById("barcodeInput");
 
@@ -249,18 +254,20 @@
         document.getElementById("modeText");
 
       if (mode === "out") {
-        modeText.textContent = "📤 출고";
-      }
-      else if (mode === "in") {
-        modeText.textContent = "📥 입고";
-      }
-      else if (mode === "scan") {
-        modeText.textContent = "🔎 부품 확인";
-      }
-      else {
-        modeText.textContent = "🧪 입력 테스트";
-      }
-    }
+  modeText.textContent = "📤 출고";
+}
+else if (mode === "in") {
+  modeText.textContent = "📥 입고";
+}
+else if (mode === "scan") {
+  modeText.textContent = "🔎 부품 확인";
+}
+else if (mode === "number") {
+  modeText.textContent = "📷 번호 읽기";
+}
+else {
+  modeText.textContent = "🧪 입력 테스트";
+}
 
     function convertCompanyBarcode(rawBarcode) {
       const result =
@@ -408,6 +415,107 @@
       );
     }
 
+    let numberQrReader = null;
+let numberDetected = false;
+
+async function startNumberReader() {
+
+  document.getElementById("modeText").textContent =
+    "📷 번호 읽기";
+
+  document.getElementById("message").innerHTML =
+    "보드의 QR 코드를 카메라에 보여주세요.<br>" +
+    "QR을 읽으면 K번호로 자동 변환됩니다.";
+
+  document.getElementById("numberReader").style.display =
+    "block";
+
+  document.querySelector(".inputCard").style.display =
+    "none";
+
+  try {
+
+    numberQrReader =
+      new Html5Qrcode("qrReader");
+
+    await numberQrReader.start(
+      {
+        facingMode: "environment"
+      },
+      {
+        fps: 15
+      },
+
+      async function(decodedText) {
+
+        if (numberDetected) {
+          return;
+        }
+
+        numberDetected = true;
+
+        const raw =
+          String(decodedText || "").trim();
+
+        const barcode =
+          convertCompanyBarcode(raw);
+
+        try {
+          await numberQrReader.stop();
+          await numberQrReader.clear();
+        } catch (e) {
+        }
+
+        const correct = confirm(
+          "인식한 번호\n\n" +
+          barcode +
+          "\n\n이 번호가 맞습니까?"
+        );
+
+        if (!correct) {
+          numberDetected = false;
+          startNumberReader();
+          return;
+        }
+
+        try {
+
+          await navigator.clipboard.writeText(barcode);
+
+          alert(
+            "✅ 번호가 복사되었습니다.\n\n" +
+            barcode +
+            "\n\n창고관리로 돌아가서 붙여넣기 하세요."
+          );
+
+        } catch (e) {
+
+          prompt(
+            "아래 번호를 복사해주세요.",
+            barcode
+          );
+
+        }
+
+        cancelScan();
+      },
+
+      function(errorMessage) {
+        // QR을 찾을 때까지 계속 카메라 유지
+      }
+    );
+
+  } catch (error) {
+
+    alert(
+      "카메라 시작 오류\n\n" +
+      (error && error.message
+        ? error.message
+        : String(error))
+    );
+  }
+}
+    
     function escapeHtml(value) {
       return String(value)
         .replaceAll("&", "&amp;")
