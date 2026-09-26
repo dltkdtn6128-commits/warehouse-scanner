@@ -455,13 +455,17 @@ async function startNumberReader() {
         facingMode: "environment"
       },
       {
-        fps: 30,
-        qrbox: function(viewfinderWidth, viewfinderHeight) {
-          return {
-            width: Math.floor(viewfinderWidth * 0.9),
-            height: Math.floor(viewfinderHeight * 0.9)
-          };
-        }
+        fps: 20,
+qrbox: function(viewfinderWidth, viewfinderHeight) {
+  const size = Math.floor(
+    Math.min(viewfinderWidth, viewfinderHeight) * 0.65
+  );
+
+  return {
+    width: size,
+    height: size
+  };
+}
       },
 
       async function(decodedText) {
