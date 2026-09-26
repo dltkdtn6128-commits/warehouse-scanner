@@ -573,19 +573,19 @@
 
         await html5QrCode.start(
 
-          {
-            facingMode: "environment"
-          },
+  {
+    facingMode: { exact: "environment" }
+  },
 
-          config,
+  config,
 
-          barcodeSuccess,
+  barcodeSuccess,
 
-          function () {
-            // 인식 실패 프레임은 무시
-          }
+  function () {
+    // 인식 실패 프레임은 무시
+  }
 
-        );
+);
 
 
         scannerRunning = true;
