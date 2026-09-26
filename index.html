@@ -144,7 +144,7 @@
     <div id="statusValue"></div>
   </div>
 
-  <div class="small"><b>ZXing-C++ WASM 최종 QR 인식</b><br>
+  <div class="small"><b>ZXing-C++ WASM 최종 인식 · 보드등록 바코드 지원</b><br>
     QR 원본번호가 +F로 시작하면 기존 회사 규칙대로 K번호로 자동 변환합니다.<br>
     OCR 결과는 자동 확정하지 않고 반드시 번호 확인 후 처리합니다.
   </div>
@@ -287,8 +287,15 @@ async function analyzePhoto(file) {
   await stopLiveScanner();
 
   try {
+    // 입고/출고/조회는 지금 성공한 QR 전용 설정을 그대로 유지.
+    // 보드등록(number)으로 들어왔을 때만 일반 1D 바코드까지 허용.
+    const boardRegisterMode = (mode === "number");
     const opts = {
-      formats: ["QRCode"],
+      formats: boardRegisterMode
+        ? ["QRCode", "Code128", "Code39", "Code93", "Codabar",
+           "EAN13", "EAN8", "UPCA", "UPCE", "ITF",
+           "DataMatrix", "PDF417", "Aztec"]
+        : ["QRCode"],
       tryHarder: true,
       tryRotate: true,
       tryInvert: true,
