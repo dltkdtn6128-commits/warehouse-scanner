@@ -94,11 +94,12 @@
     }
     .small { font-size: 14px; color: #aaa; text-align: center; margin-top: 8px; line-height: 1.45; }
   
-  /* 현장용 빠른 버전: 자동 실시간 스캔 UI 숨김 */
+  /* 최종 현장 버전: 자동 실시간 스캔 UI 숨김 */
   #reader, #cameraArea, #scanArea, .camera-area, .scan-area { display:none !important; }
 </style>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.0.1/dist/iife/reader/index.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   </head>
 
@@ -108,8 +109,8 @@
   <div id="modeText">부품 확인</div>
 
   <div id="message">
-    QR 전용 집중 인식 모드입니다.<br>
-    사진에서 <b>QR처럼 생긴 영역만 찾아 확대·보정</b>해서 빠르게 분석합니다.
+    현장용 QR 전용 인식입니다.<br>
+    <b>촬영해서 강력 인식</b>으로 ZXing-C++ WASM 엔진이 QR만 읽습니다.
   </div>
 
   <div id="reader"></div>
@@ -143,7 +144,7 @@
     <div id="statusValue"></div>
   </div>
 
-  <div class="small"><b>QR 영역 집중 인식 v5</b><br>
+  <div class="small"><b>ZXing-C++ WASM 최종 QR 인식</b><br>
     QR 원본번호가 +F로 시작하면 기존 회사 규칙대로 K번호로 자동 변환합니다.<br>
     OCR 결과는 자동 확정하지 않고 반드시 번호 확인 후 처리합니다.
   </div>
@@ -153,7 +154,7 @@
   </button>
 </div>
 
-<div id="busy">QR코드만 빠르게 분석하고 있습니다.<br>원본 + 핵심 QR 보정만 확인합니다.</div>
+<div id="busy">사진을 분석하고 있습니다.<br>QR → 이미지 보정 → 문자 인식 순서로 확인합니다.</div>
 
 <script>
 const DEFAULT_RETURN_URL =
@@ -286,86 +287,47 @@ async function analyzePhoto(file) {
   await stopLiveScanner();
 
   try {
-    const imageData = await loadImageData(file);
+    const opts = {
+      formats: ["QRCode"],
+      tryHarder: true,
+      tryRotate: true,
+      tryInvert: true,
+      maxNumberOfSymbols: 1
+    };
 
-    // 1) 전체 사진은 빠르게 한 번씩만 확인
-    const nativeValue = await tryBarcodeDetector(imageData.canvas);
-    if (nativeValue) {
-      setBusy(false); busy = false;
-      await acceptDetected(nativeValue, "전체 사진 QR 인식");
+    // 1) 성공한 테스트와 동일하게 촬영 원본 파일을 ZXing-C++ WASM으로 먼저 분석
+    let results = await ZXingWASM.readBarcodes(file, opts);
+    if (results && results.length && results[0].text) {
+      setBusy(false);
+      busy = false;
+      await acceptDetected(results[0].text.trim(), "ZXing-C++ QR 인식");
       return;
     }
 
-    const qrOriginal = tryJsQr(imageData.data, imageData.width, imageData.height);
-    if (qrOriginal) {
-      setBusy(false); busy = false;
-      await acceptDetected(qrOriginal, "전체 사진 QR 인식");
+    // 2) 원본이 실패할 때만 휴대폰 사진 크기를 안정적으로 줄여 한 번 더 시도
+    const source = await loadImageData(file);
+    results = await ZXingWASM.readBarcodes(source.data, opts);
+    if (results && results.length && results[0].text) {
+      setBusy(false);
+      busy = false;
+      await acceptDetected(results[0].text.trim(), "ZXing-C++ QR 인식");
       return;
     }
 
-    // 2) 사진 전체를 무겁게 보정하지 않고,
-    // QR처럼 검정/흰색 변화가 많은 작은 사각 영역을 찾아 우선 분석
-    const regions = findQrLikeRegions(imageData.canvas, 8);
-
-    for (let i = 0; i < regions.length; i++) {
-      const r = regions[i];
-
-      // QR 주변에 흰 여백을 붙이고 3배 확대
-      const focused = makeFocusedQrCanvas(imageData.canvas, r, 3.0, 0.12);
-
-      let value = await tryBarcodeDetector(focused.canvas);
-      if (value) {
-        setBusy(false); busy = false;
-        await acceptDetected(value, "QR 영역 집중 인식");
-        return;
-      }
-
-      const fd = focused.ctx.getImageData(0, 0, focused.canvas.width, focused.canvas.height);
-      value = tryJsQr(fd, focused.canvas.width, focused.canvas.height);
-      if (value) {
-        setBusy(false); busy = false;
-        await acceptDetected(value, "QR 영역 집중 인식");
-        return;
-      }
-
-      // 상위 QR 후보만 핵심 보정 3종 추가
-      if (i < 4) {
-        const gray = toGray(fd);
-        const stretch = contrastStretch(gray);
-        const blur = gaussianBlur3x3(stretch, focused.canvas.width, focused.canvas.height);
-        const sharp = unsharpMask(stretch, blur, 1.7, 0.7);
-
-        const focusedVariants = [
-          makeGrayVariant(stretch, focused.canvas.width, focused.canvas.height),
-          makeGrayVariant(sharp, focused.canvas.width, focused.canvas.height),
-          makeGrayVariant(
-            adaptiveThreshold(sharp, focused.canvas.width, focused.canvas.height, 31, 5),
-            focused.canvas.width, focused.canvas.height
-          )
-        ];
-
-        for (const v of focusedVariants) {
-          value = tryJsQr(v.data, v.width, v.height);
-          if (!value) value = await tryBarcodeDetector(v.canvas);
-          if (value) {
-            setBusy(false); busy = false;
-            await acceptDetected(value, "QR 영역 보정 인식");
-            return;
-          }
-        }
-      }
-
-      // 휴대폰 화면이 멈춘 것처럼 보이지 않게 잠깐 양보
-      if (i === 3) await new Promise(r => setTimeout(r, 0));
+    // 3) 마지막으로 중앙 영역만 확대해서 QR 전용으로 재시도
+    const crop = makeZxingCenterCrop(source, 0.82, 1.8);
+    results = await ZXingWASM.readBarcodes(crop, opts);
+    if (results && results.length && results[0].text) {
+      setBusy(false);
+      busy = false;
+      await acceptDetected(results[0].text.trim(), "ZXing-C++ 확대 QR 인식");
+      return;
     }
 
     setBusy(false);
     busy = false;
     detected = false;
-    alert(
-      "QR코드를 인식하지 못했습니다.\n\n" +
-      "QR코드가 사진 안에 들어오도록 다시 촬영해주세요."
-    );
+    alert("QR코드를 인식하지 못했습니다.\n\nQR코드가 사진 안에 보이도록 다시 촬영해주세요.");
 
   } catch (e) {
     setBusy(false);
@@ -374,6 +336,26 @@ async function analyzePhoto(file) {
     alert("QR 분석 중 오류가 발생했습니다.\n\n" +
       (e && e.message ? e.message : String(e)));
   }
+}
+
+function makeZxingCenterCrop(source, ratio, scale) {
+  const sw = Math.floor(source.canvas.width * ratio);
+  const sh = Math.floor(source.canvas.height * ratio);
+  const sx = Math.floor((source.canvas.width - sw) / 2);
+  const sy = Math.floor((source.canvas.height - sh) / 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(sw * scale));
+  canvas.height = Math.max(1, Math.floor(sh * scale));
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source.canvas, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 async function tryHtml5File(file) {
   const id = "tempFileQr_" + Date.now();
@@ -459,167 +441,22 @@ function tryJsQr(imageData, width, height) {
   }
 }
 
-
-function findQrLikeRegions(sourceCanvas, maxRegions) {
-  // QR은 가로/세로 검정-흰색 전환이 모두 많은 정사각형 패턴이라는 점을 이용한다.
-  // 사진을 겹치는 정사각 타일로 훑고 점수가 높은 영역만 골라낸다.
-  const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
-  const w = sourceCanvas.width, h = sourceCanvas.height;
-  const img = ctx.getImageData(0, 0, w, h);
-  const gray = toGray(img);
-
-  const side = Math.floor(Math.min(w, h) * 0.34);
-  const step = Math.max(40, Math.floor(side * 0.52));
-  const regions = [];
-
-  for (let y = 0; y <= h - side; y += step) {
-    for (let x = 0; x <= w - side; x += step) {
-      const score = qrTextureScore(gray, w, h, x, y, side);
-      regions.push({ x, y, w: side, h: side, score });
-    }
-  }
-
-  // 오른쪽/아래 끝도 빠지지 않게 후보 추가
-  const edgeXs = [0, Math.max(0, w - side)];
-  const edgeYs = [0, Math.max(0, h - side)];
-  for (const y of edgeYs) {
-    for (const x of edgeXs) {
-      regions.push({ x, y, w: side, h: side,
-        score: qrTextureScore(gray, w, h, x, y, side) });
-    }
-  }
-
-  regions.sort((a,b) => b.score - a.score);
-
-  // 거의 같은 위치의 겹치는 후보 제거
-  const picked = [];
-  for (const r of regions) {
-    const duplicate = picked.some(p => {
-      const cx1 = r.x + r.w/2, cy1 = r.y + r.h/2;
-      const cx2 = p.x + p.w/2, cy2 = p.y + p.h/2;
-      return Math.hypot(cx1-cx2, cy1-cy2) < side * 0.35;
-    });
-    if (!duplicate) picked.push(r);
-    if (picked.length >= maxRegions) break;
-  }
-  return picked;
-}
-
-function qrTextureScore(gray, imgW, imgH, x, y, side) {
-  // 속도를 위해 모든 픽셀이 아니라 일정 간격으로 샘플링한다.
-  const samples = 28;
-  let hTransitions = 0, vTransitions = 0, dark = 0, total = 0;
-
-  for (let j = 0; j < samples; j++) {
-    const py = Math.min(imgH - 1, y + Math.floor((j + 0.5) * side / samples));
-    let prev = null;
-    for (let i = 0; i < samples; i++) {
-      const px = Math.min(imgW - 1, x + Math.floor((i + 0.5) * side / samples));
-      const v = gray[py * imgW + px] < 150 ? 1 : 0;
-      dark += v; total++;
-      if (prev !== null && v !== prev) hTransitions++;
-      prev = v;
-    }
-  }
-
-  for (let i = 0; i < samples; i++) {
-    const px = Math.min(imgW - 1, x + Math.floor((i + 0.5) * side / samples));
-    let prev = null;
-    for (let j = 0; j < samples; j++) {
-      const py = Math.min(imgH - 1, y + Math.floor((j + 0.5) * side / samples));
-      const v = gray[py * imgW + px] < 150 ? 1 : 0;
-      if (prev !== null && v !== prev) vTransitions++;
-      prev = v;
-    }
-  }
-
-  const darkRatio = total ? dark / total : 0;
-  // 글자 한 줄보다 QR처럼 양방향 변화가 많은 곳에 높은 점수.
-  const balance = Math.min(hTransitions, vTransitions);
-  const densityBonus = (darkRatio > 0.08 && darkRatio < 0.62) ? 80 : 0;
-  return balance * 2 + hTransitions + vTransitions + densityBonus;
-}
-
-function makeFocusedQrCanvas(sourceCanvas, r, scale, paddingRatio) {
-  const pad = Math.floor(r.w * paddingRatio);
-  const sx = Math.max(0, r.x - pad);
-  const sy = Math.max(0, r.y - pad);
-  const ex = Math.min(sourceCanvas.width, r.x + r.w + pad);
-  const ey = Math.min(sourceCanvas.height, r.y + r.h + pad);
-  const sw = Math.max(1, ex - sx);
-  const sh = Math.max(1, ey - sy);
-
-  // QR quiet-zone 역할을 하는 흰 여백을 별도로 추가
-  const innerW = Math.floor(sw * scale);
-  const innerH = Math.floor(sh * scale);
-  const quiet = Math.max(24, Math.floor(Math.min(innerW, innerH) * 0.08));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = innerW + quiet * 2;
-  canvas.height = innerH + quiet * 2;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(sourceCanvas, sx, sy, sw, sh,
-                quiet, quiet, innerW, innerH);
-  return { canvas, ctx };
-}
-
 function buildRobustVariants(source) {
-  const variants = [];
   const gray = toGray(source.data);
   const stretched = contrastStretch(gray);
   const blurred = gaussianBlur3x3(stretched, source.width, source.height);
-  const sharp = unsharpMask(stretched, blurred, 1.7, 0.7);
+  const sharpened = unsharpMask(stretched, blurred, 1.8, 0.8);
+  const binary31 = adaptiveThreshold(sharpened, source.width, source.height, 31, 5);
+  const binary51 = adaptiveThreshold(sharpened, source.width, source.height, 51, 7);
 
-  // 전체 사진: QR 형태 보존에 효과적인 핵심 후보만 사용
-  variants.push(makeGrayVariant(gray, source.width, source.height));
-  variants.push(makeGrayVariant(stretched, source.width, source.height));
-  variants.push(makeGrayVariant(sharp, source.width, source.height));
-  variants.push(makeGrayVariant(
-    adaptiveThreshold(sharp, source.width, source.height, 31, 5),
-    source.width, source.height
-  ));
-  variants.push(makeGrayVariant(
-    adaptiveThreshold(sharp, source.width, source.height, 51, 7),
-    source.width, source.height
-  ));
-
-  // QR이 작게 찍힌 경우를 위해 중앙 80%만 1.5배 확대하여 빠르게 재시도
-  const crop = cropCenterCanvas(source.canvas, 0.80, 1.5);
-  const cropData = crop.ctx.getImageData(0, 0, crop.canvas.width, crop.canvas.height);
-  const cg = toGray(cropData);
-  const cs = contrastStretch(cg);
-  const cb = gaussianBlur3x3(cs, crop.canvas.width, crop.canvas.height);
-  const csharp = unsharpMask(cs, cb, 1.7, 0.7);
-
-  variants.push(makeGrayVariant(cs, crop.canvas.width, crop.canvas.height));
-  variants.push(makeGrayVariant(csharp, crop.canvas.width, crop.canvas.height));
-  variants.push(makeGrayVariant(
-    adaptiveThreshold(csharp, crop.canvas.width, crop.canvas.height, 31, 5),
-    crop.canvas.width, crop.canvas.height
-  ));
-
-  return variants;
+  return [
+    makeGrayVariant(stretched, source.width, source.height),
+    makeGrayVariant(sharpened, source.width, source.height),
+    makeGrayVariant(binary31, source.width, source.height),
+    makeGrayVariant(binary51, source.width, source.height)
+  ];
 }
 
-function cropCenterCanvas(sourceCanvas, ratio, scale) {
-  const sw = Math.max(1, Math.floor(sourceCanvas.width * ratio));
-  const sh = Math.max(1, Math.floor(sourceCanvas.height * ratio));
-  const sx = Math.floor((sourceCanvas.width - sw) / 2);
-  const sy = Math.floor((sourceCanvas.height - sh) / 2);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(sw * scale);
-  canvas.height = Math.floor(sh * scale);
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-  return { canvas, ctx };
-}
 function toGray(imageData) {
   const src = imageData.data;
   const gray = new Uint8ClampedArray(imageData.width * imageData.height);
