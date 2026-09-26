@@ -287,11 +287,11 @@ async function analyzePhoto(file) {
   await stopLiveScanner();
 
   try {
-    // 입고/출고/조회는 지금 성공한 QR 전용 설정을 그대로 유지.
-    // 보드등록(number)으로 들어왔을 때만 일반 1D 바코드까지 허용.
-    const boardRegisterMode = (mode === "number");
+    // 입고/출고/보드등록 모두 QR + 일반 1D/2D 바코드를 허용.
+    // 기존 보드등록 강화 로직을 세 메뉴에서 공통으로 사용한다.
+    const strongBarcodeMode = (mode === "number" || mode === "in" || mode === "out");
     const opts = {
-      formats: boardRegisterMode
+      formats: strongBarcodeMode
         ? ["QRCode", "Code128", "Code39", "Code93", "Codabar",
            "EAN13", "EAN8", "UPCA", "UPCE", "ITF",
            "DataMatrix", "PDF417", "Aztec"]
@@ -321,8 +321,8 @@ async function analyzePhoto(file) {
       return;
     }
 
-    // 3) 입고/출고/조회는 기존 성공한 QR 흐름 그대로 유지
-    if (!boardRegisterMode) {
+    // 3) QR 전용 모드에서는 기존 성공한 QR 흐름 그대로 유지
+    if (!strongBarcodeMode) {
       const crop = makeZxingCenterCrop(source, 0.82, 1.8);
       results = await ZXingWASM.readBarcodes(crop, opts);
       if (results && results.length && results[0].text) {
@@ -333,10 +333,10 @@ async function analyzePhoto(file) {
       }
     }
 
-    // 4) 보드등록만 강화:
+    // 4) 입고/출고/보드등록 공통 강화:
     // 일반 1D/2D 바코드는 길고 좁거나 세로로 붙어 있는 경우가 많으므로
     // 0/90/180/270도 회전 + 전체 확대 + 중앙의 가로/세로 긴 영역을 빠르게 재시도
-    if (boardRegisterMode) {
+    if (strongBarcodeMode) {
       const boardCandidates = makeBoardBarcodeCandidates(source);
 
       for (let i = 0; i < boardCandidates.length; i++) {
@@ -344,7 +344,7 @@ async function analyzePhoto(file) {
         if (results && results.length && results[0].text) {
           setBusy(false);
           busy = false;
-          await acceptDetected(results[0].text.trim(), "ZXing-C++ 보드 바코드 인식");
+          await acceptDetected(results[0].text.trim(), "ZXing-C++ 강력 바코드 인식");
           return;
         }
         if (i === 3) await new Promise(r => setTimeout(r, 0));
@@ -354,7 +354,7 @@ async function analyzePhoto(file) {
     setBusy(false);
     busy = false;
     detected = false;
-    alert("QR코드를 인식하지 못했습니다.\n\nQR코드가 사진 안에 보이도록 다시 촬영해주세요.");
+    alert("바코드 / QR을 인식하지 못했습니다.\n\n코드가 사진 안에 잘 보이도록 다시 촬영해주세요.");
 
   } catch (e) {
     setBusy(false);
