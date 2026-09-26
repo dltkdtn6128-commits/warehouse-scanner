@@ -144,7 +144,7 @@
     <div id="statusValue"></div>
   </div>
 
-  <div class="small"><b>ZXing-C++ WASM 최종 인식 · 보드등록 바코드 지원</b><br>
+  <div class="small"><b>ZXing-C++ WASM · 보드등록 바코드 강화 v2</b><br>
     QR 원본번호가 +F로 시작하면 기존 회사 규칙대로 K번호로 자동 변환합니다.<br>
     OCR 결과는 자동 확정하지 않고 반드시 번호 확인 후 처리합니다.
   </div>
@@ -321,14 +321,34 @@ async function analyzePhoto(file) {
       return;
     }
 
-    // 3) 마지막으로 중앙 영역만 확대해서 QR 전용으로 재시도
-    const crop = makeZxingCenterCrop(source, 0.82, 1.8);
-    results = await ZXingWASM.readBarcodes(crop, opts);
-    if (results && results.length && results[0].text) {
-      setBusy(false);
-      busy = false;
-      await acceptDetected(results[0].text.trim(), "ZXing-C++ 확대 QR 인식");
-      return;
+    // 3) 입고/출고/조회는 기존 성공한 QR 흐름 그대로 유지
+    if (!boardRegisterMode) {
+      const crop = makeZxingCenterCrop(source, 0.82, 1.8);
+      results = await ZXingWASM.readBarcodes(crop, opts);
+      if (results && results.length && results[0].text) {
+        setBusy(false);
+        busy = false;
+        await acceptDetected(results[0].text.trim(), "ZXing-C++ 확대 QR 인식");
+        return;
+      }
+    }
+
+    // 4) 보드등록만 강화:
+    // 일반 1D/2D 바코드는 길고 좁거나 세로로 붙어 있는 경우가 많으므로
+    // 0/90/180/270도 회전 + 전체 확대 + 중앙의 가로/세로 긴 영역을 빠르게 재시도
+    if (boardRegisterMode) {
+      const boardCandidates = makeBoardBarcodeCandidates(source);
+
+      for (let i = 0; i < boardCandidates.length; i++) {
+        results = await ZXingWASM.readBarcodes(boardCandidates[i], opts);
+        if (results && results.length && results[0].text) {
+          setBusy(false);
+          busy = false;
+          await acceptDetected(results[0].text.trim(), "ZXing-C++ 보드 바코드 인식");
+          return;
+        }
+        if (i === 3) await new Promise(r => setTimeout(r, 0));
+      }
     }
 
     setBusy(false);
@@ -343,6 +363,82 @@ async function analyzePhoto(file) {
     alert("QR 분석 중 오류가 발생했습니다.\n\n" +
       (e && e.message ? e.message : String(e)));
   }
+}
+
+function makeBoardBarcodeCandidates(source) {
+  const out = [];
+
+  // 원본을 1.6배 확대: 작은 1D 바의 폭을 확보
+  out.push(scaleCanvasImageData(source.canvas, 1.6));
+
+  // 세로 라벨 / 뒤집힌 라벨 대응
+  out.push(rotateCanvasImageData(source.canvas, 90, 1.45));
+  out.push(rotateCanvasImageData(source.canvas, 270, 1.45));
+  out.push(rotateCanvasImageData(source.canvas, 180, 1.45));
+
+  // 길고 좁은 바코드 라벨 대응: 중앙 가로 띠 / 세로 띠를 각각 확대
+  out.push(cropRectImageData(source.canvas, 0.05, 0.25, 0.90, 0.50, 2.0));
+  out.push(cropRectImageData(source.canvas, 0.25, 0.05, 0.50, 0.90, 2.0));
+
+  // 중앙보다 약간 좌/우 또는 위/아래에 붙은 라벨 대응
+  out.push(cropRectImageData(source.canvas, 0.00, 0.15, 0.72, 0.70, 1.8));
+  out.push(cropRectImageData(source.canvas, 0.28, 0.15, 0.72, 0.70, 1.8));
+
+  return out;
+}
+
+function scaleCanvasImageData(sourceCanvas, scale) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(sourceCanvas.width * scale));
+  canvas.height = Math.max(1, Math.floor(sourceCanvas.height * scale));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function rotateCanvasImageData(sourceCanvas, deg, scale) {
+  const rad = deg * Math.PI / 180;
+  const swap = (deg % 180 !== 0);
+  const baseW = swap ? sourceCanvas.height : sourceCanvas.width;
+  const baseH = swap ? sourceCanvas.width : sourceCanvas.height;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(baseW * scale));
+  canvas.height = Math.max(1, Math.floor(baseH * scale));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(rad);
+  ctx.scale(scale, scale);
+  ctx.drawImage(sourceCanvas, -sourceCanvas.width / 2, -sourceCanvas.height / 2);
+
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function cropRectImageData(sourceCanvas, rx, ry, rw, rh, scale) {
+  const sx = Math.max(0, Math.floor(sourceCanvas.width * rx));
+  const sy = Math.max(0, Math.floor(sourceCanvas.height * ry));
+  const sw = Math.max(1, Math.floor(sourceCanvas.width * rw));
+  const sh = Math.max(1, Math.floor(sourceCanvas.height * rh));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(sw * scale));
+  canvas.height = Math.max(1, Math.floor(sh * scale));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
 function makeZxingCenterCrop(source, ratio, scale) {
