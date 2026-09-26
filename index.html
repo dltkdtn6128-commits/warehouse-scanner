@@ -2,1201 +2,770 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-  >
-
-  <title>창고 부품 바코드 스캐너</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>창고 부품 강력 인식 스캐너</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      width: 100%;
-      height: 100%;
+    * { box-sizing: border-box; }
+    html, body {
       margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #000;
+      min-height: 100%;
+      background: #111;
       font-family: Arial, "Noto Sans KR", sans-serif;
     }
-
-    #scannerPage {
-      position: fixed;
-      inset: 0;
-      background: #000;
-      overflow: hidden;
-    }
+    body { color: #fff; padding: 18px 14px 28px; }
+    .wrap { width: 100%; max-width: 620px; margin: 0 auto; }
+    h1 { margin: 12px 0 6px; text-align: center; font-size: 28px; }
+    #modeText { text-align: center; font-size: 21px; font-weight: bold; margin-bottom: 8px; }
+    #message { text-align: center; color: #ddd; font-size: 16px; line-height: 1.5; margin-bottom: 14px; }
 
     #reader {
-      position: absolute;
-      inset: 0;
       width: 100%;
-      height: 100%;
+      min-height: 280px;
+      overflow: hidden;
+      border-radius: 18px;
       background: #000;
+      margin-bottom: 14px;
     }
 
-    #reader video {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: cover !important;
-    }
-
-    #reader__scan_region {
-      background: transparent !important;
-    }
-
-    #reader__dashboard {
-      display: none !important;
-    }
-
-    #topArea {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 20;
-      padding:
-        calc(env(safe-area-inset-top) + 22px)
-        18px
-        18px
-        18px;
-
-      background: linear-gradient(
-        to bottom,
-        rgba(0,0,0,0.85),
-        rgba(0,0,0,0)
-      );
-
-      color: white;
-      text-align: center;
-      pointer-events: none;
-    }
-
-    #title {
-      font-size: 26px;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-
-    #modeText {
-      display: inline-block;
-      padding: 7px 15px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.18);
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
-
-    #message {
-      font-size: 17px;
-      line-height: 1.5;
-      text-shadow: 0 2px 4px #000;
-    }
-
-    #guideBox {
-      position: absolute;
-      z-index: 15;
-
-      left: 50%;
-      top: 50%;
-
-      transform: translate(-50%, -50%);
-
-      width: 86%;
-      max-width: 600px;
-      height: 180px;
-
-      border: 4px solid #ff2b2b;
-      border-radius: 18px;
-
-      pointer-events: none;
-
-      box-shadow:
-        0 0 0 9999px rgba(0,0,0,0.18),
-        0 0 18px rgba(255,0,0,0.7);
-    }
-
-    #guideLine {
-      position: absolute;
-      left: 5%;
-      right: 5%;
-      top: 50%;
-      height: 4px;
-      transform: translateY(-50%);
-      background: #ff2b2b;
-      box-shadow: 0 0 10px #ff0000;
-    }
-
-    #guideText {
-      position: absolute;
-      bottom: -48px;
-      left: 0;
-      right: 0;
-      color: white;
-      text-align: center;
-      font-size: 17px;
-      font-weight: bold;
-      text-shadow: 0 2px 5px #000;
-    }
-
-    #bottomArea {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 30;
-
-      padding:
-        8px
-        22px
-        calc(env(safe-area-inset-bottom) + 8px)
-        22px;
-
-      background: linear-gradient(
-        to top,
-        rgba(0,0,0,0.9),
-        rgba(0,0,0,0)
-      );
-    }
-#photoScanButton {
-  display: block;
-  width: 100%;
-  min-height: 66px;
-
-  margin-bottom: 8px;
-
-  border: none;
-  border-radius: 18px;
-
-  background: #ff9800;
-  color: white;
-
-  font-size: 22px;
-  font-weight: bold;
-
-  cursor: pointer;
-}
-    #cancelButton {
-      display: none;
+    .button {
+      display: block;
       width: 100%;
       min-height: 66px;
-
-      border: none;
-      border-radius: 18px;
-
-      background: rgba(255,255,255,0.92);
-      color: #222;
-
-      font-size: 22px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 17px;
+      font-size: 20px;
       font-weight: bold;
-
       cursor: pointer;
     }
+    #photoButton { background: #ff9800; color: #fff; }
+    #manualButton { background: #f5f5f5; color: #222; }
+    #backButton { background: #ddd; color: #222; }
 
-    #resultBox,
-    #errorBox {
+    .inputCard {
       display: none;
-
-      position: fixed;
-      z-index: 100;
-
-      left: 50%;
-      top: 50%;
-
-      transform: translate(-50%, -50%);
-
-      width: calc(100% - 36px);
-      max-width: 560px;
-
-      padding: 32px 24px;
-
-      border-radius: 24px;
-
-      background: white;
+      background: #fff;
       color: #222;
+      padding: 18px;
+      border-radius: 18px;
+      margin-top: 12px;
+    }
+    #barcodeInput {
+      width: 100%;
+      min-height: 62px;
+      padding: 10px 14px;
+      border: 3px solid #bbb;
+      border-radius: 13px;
+      font-size: 20px;
+      font-weight: bold;
+      outline: none;
+    }
+    #confirmButton { background: #1976d2; color: #fff; }
+    #closeManualButton { background: #eee; color: #222; }
 
+    #statusBox {
+      display: none;
+      margin-top: 14px;
+      padding: 16px;
+      border-radius: 15px;
+      background: #fff;
+      color: #222;
       text-align: center;
-
-      box-shadow: 0 8px 40px rgba(0,0,0,0.45);
-    }
-
-    #resultTitle {
-      font-size: 29px;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-
-    #resultBarcode {
-      padding: 18px 12px;
-
-      background: #f3f5f7;
-
-      border-radius: 14px;
-
-      font-size: 22px;
-      font-weight: bold;
-
+      line-height: 1.5;
       word-break: break-all;
-
-      margin-bottom: 15px;
     }
+    #statusTitle { font-size: 20px; font-weight: bold; margin-bottom: 7px; }
+    #statusValue { font-size: 17px; font-weight: bold; }
 
-    #returnMessage {
-      font-size: 18px;
-      line-height: 1.5;
-      color: #555;
-    }
-
-    .actionButton {
-      width: 100%;
-      min-height: 66px;
-
-      margin-top: 22px;
-
-      border: none;
-      border-radius: 16px;
-
-      font-size: 21px;
+    #busy {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.82);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      text-align: center;
+      font-size: 20px;
       font-weight: bold;
-
-      cursor: pointer;
-    }
-
-    #rescanButton {
-      background: #1976d2;
-      color: white;
-    }
-
-    #backButton {
-      background: #eeeeee;
-      color: #222;
-    }
-
-    #errorTitle {
-      font-size: 27px;
-      font-weight: bold;
-      color: #d32f2f;
-      margin-bottom: 18px;
-    }
-
-    #errorMessage {
-      font-size: 18px;
       line-height: 1.6;
-      color: #333;
     }
+    .small { font-size: 14px; color: #aaa; text-align: center; margin-top: 8px; line-height: 1.45; }
   </style>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 
 <body>
+<div class="wrap">
+  <h1>📷 바코드 / QR 강력 인식</h1>
+  <div id="modeText">부품 확인</div>
 
-  <div id="scannerPage">
+  <div id="message">
+    자동 인식을 먼저 시도합니다.<br>
+    잘 안 되면 아래 <b>촬영해서 강력 인식</b>을 눌러주세요.
+  </div>
 
-    <div id="reader"></div>
+  <div id="reader"></div>
 
-    <div id="topArea">
-
-      <div id="title">
-        📷 바코드 자동 스캔
-      </div>
-
-      <div id="modeText">
-        바코드 스캔
-      </div>
-
-      <div id="message">
-        원하는 부품의 바코드를<br>
-        빨간 박스 중앙에 맞춰주세요
-      </div>
-
-    </div>
-
-    <div id="guideBox">
-      <div id="guideLine"></div>
-
-      <div id="guideText">
-        바코드를 빨간 선에 맞춰주세요
-      </div>
-    </div>
-
-<div id="bottomArea">
-
-  <button
-    id="photoScanButton"
-    type="button"
-    onclick="document.getElementById('photoInput').click()"
-  >
-    📸 자동인식이 안되면 촬영으로 스캔
+  <button id="photoButton" class="button" type="button" onclick="choosePhoto()">
+    📸 촬영해서 강력 인식
   </button>
 
-  <input
-    id="photoInput"
-    type="file"
-    accept="image/*"
-    capture="environment"
-    style="display:none"
-    onchange="scanPhoto(this.files[0])"
-  >
+  <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none">
 
-  <button
-    id="manualInputButton"
-    type="button"
-    onclick="manualInput()"
-    style="
-      display:block;
-      width:100%;
-      min-height:66px;
-      margin-bottom:8px;
-      border:none;
-      border-radius:18px;
-      background:#eeeeee;
-      color:#222;
-      font-size:22px;
-      font-weight:bold;
-      cursor:pointer;
-    "
-  >
+  <button id="manualButton" class="button" type="button" onclick="openManual()">
     ⌨️ 바코드 / QR 직접 입력
   </button>
 
-  <button
-    id="cancelButton"
-    type="button"
-    onclick="cancelScan()"
-  >
+  <div class="inputCard" id="inputCard">
+    <input
+      id="barcodeInput"
+      type="text"
+      inputmode="text"
+      autocomplete="off"
+      autocapitalize="characters"
+      spellcheck="false"
+      placeholder="예: K917568500034993 또는 +F..."
+    >
+    <button id="confirmButton" class="button" type="button" onclick="submitManual()">확인</button>
+    <button id="closeManualButton" class="button" type="button" onclick="closeManual()">닫기</button>
+  </div>
+
+  <div id="statusBox">
+    <div id="statusTitle"></div>
+    <div id="statusValue"></div>
+  </div>
+
+  <div class="small">
+    QR 원본번호가 +F로 시작하면 기존 회사 규칙대로 K번호로 자동 변환합니다.<br>
+    OCR 결과는 자동 확정하지 않고 반드시 번호 확인 후 처리합니다.
+  </div>
+
+  <button id="backButton" class="button" type="button" onclick="cancelScan()">
     ← 창고관리로 돌아가기
   </button>
-
 </div>
 
+<div id="busy">사진을 분석하고 있습니다.<br>QR → 이미지 보정 → 문자 인식 순서로 확인합니다.</div>
 
-  <div id="resultBox">
+<script>
+const DEFAULT_RETURN_URL =
+  "https://script.google.com/macros/s/AKfycbzz7fNk9x8N7NEll5wsNzjNKMiQ6qq3L-4lBaU3xT2JNaxE9LVgES8wNgW6_0DKKYHbrA/exec";
 
-    <div id="resultTitle">
-      ✅ 바코드 / QR 인식 성공
-    </div>
+const params = new URLSearchParams(window.location.search);
+const mode = params.get("mode") || "test";
+const employee = params.get("employee") || "";
+const suppliedReturnUrl = params.get("returnUrl") || "";
+const returnUrl = suppliedReturnUrl || DEFAULT_RETURN_URL;
 
-    <div id="resultBarcode"></div>
+let liveScanner = null;
+let detected = false;
+let busy = false;
 
-    <div id="returnMessage"></div>
+window.addEventListener("load", async function () {
+  setModeDisplay();
 
-    <button
-      id="rescanButton"
-      class="actionButton"
-      type="button"
-      onclick="restartScanner()"
-    >
-      📷 다시 스캔
-    </button>
-
-  </div>
-
-
-  <div id="errorBox">
-
-    <div id="errorTitle">
-      ⚠️ 카메라 실행 오류
-    </div>
-
-    <div id="errorMessage"></div>
-
-    <button
-      class="actionButton"
-      type="button"
-      onclick="restartScanner()"
-    >
-      다시 시도
-    </button>
-
-    <button
-      class="actionButton"
-      id="backButton"
-      type="button"
-      onclick="cancelScan()"
-    >
-      창고관리로 돌아가기
-    </button>
-
-  </div>
-
-
-  <script
-    src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
-  </script>
-
-
-  <script>
-
-    /*************************************************
-     * 창고관리 Apps Script 주소
-     *************************************************/
-
-    const DEFAULT_RETURN_URL =
-      "https://script.google.com/macros/s/AKfycbzz7fNk9x8N7NEll5wsNzjNKMiQ6qq3L-4lBaU3xT2JNaxE9LVgES8wNgW6_0DKKYHbrA/exec";
-
-
-    /*************************************************
-     * 기본 변수
-     *************************************************/
-
-    let html5QrCode = null;
-
-    let barcodeDetected = false;
-
-    let scannerRunning = false;
-
-
-    /*************************************************
-     * URL에서 전달받은 값
-     *************************************************/
-
-    const params =
-      new URLSearchParams(window.location.search);
-
-
-    const mode =
-      params.get("mode") || "test";
-
-
-    const employee =
-      params.get("employee") || "";
-
-
-    const suppliedReturnUrl =
-      params.get("returnUrl") || "";
-
-
-    const returnUrl =
-      suppliedReturnUrl || DEFAULT_RETURN_URL;
-
-
-    /*************************************************
-     * 화면 시작
-     *************************************************/
-
-    window.addEventListener(
-      "load",
-      function () {
-
-        setModeDisplay();
-
-        if (mode !== "test") {
-
-          document
-            .getElementById("cancelButton")
-            .style.display = "block";
-
-        }
-
-        startScanner();
-
-      }
-    );
-
-
-    /*************************************************
-     * 모드 표시
-     *************************************************/
-
-    function setModeDisplay() {
-
-      const modeText =
-        document.getElementById("modeText");
-
-
-      if (mode === "out") {
-
-        modeText.textContent =
-          "📤 출고 바코드 스캔";
-
-      }
-
-      else if (mode === "in") {
-
-        modeText.textContent =
-          "📥 입고 바코드 스캔";
-
-      }
-
-      else if (mode === "scan") {
-
-        modeText.textContent =
-          "📷 부품 바코드 확인";
-
-      }
-
-      else {
-
-        modeText.textContent =
-          "📷 자동스캔 테스트";
-
-      }
-
+  const input = document.getElementById("barcodeInput");
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitManual();
     }
+  });
 
+  document.getElementById("photoInput").addEventListener("change", async function (event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (file) await analyzePhoto(file);
+  });
 
-    /*************************************************
-     * 카메라 시작
-     *************************************************/
+  await startLiveScanner();
+});
 
-    async function startScanner() {
+function setModeDisplay() {
+  const el = document.getElementById("modeText");
+  if (mode === "out") el.textContent = "📤 출고";
+  else if (mode === "in") el.textContent = "📥 입고";
+  else if (mode === "scan") el.textContent = "🔎 부품 확인";
+  else if (mode === "number") el.textContent = "📷 번호 읽기";
+  else el.textContent = "🧪 스캐너 테스트";
+}
 
-      barcodeDetected = false;
+function convertCompanyBarcode(rawBarcode) {
+  const result = String(rawBarcode || "").trim().toUpperCase();
 
-      hideResult();
-      hideError();
+  const map = {
+    "0": "6", "1": "2", "2": "4", "3": "5", "4": "1",
+    "5": "3", "6": "7", "7": "0", "8": "9", "9": "8"
+  };
 
-      document
-        .getElementById("guideBox")
-        .style.display = "block";
-
-      document
-        .getElementById("message")
-        .style.display = "block";
-
-      try {
-
-        if (!html5QrCode) {
-          html5QrCode = new Html5Qrcode(
-            "reader",
-            false
-          );
-        }
-
-        const config = {
-          fps: 12,
-
-          qrbox: function (
-            viewfinderWidth,
-            viewfinderHeight
-          ) {
-
-            let width =
-              Math.floor(
-                viewfinderWidth * 0.96
-              );
-
-            let height = 300;
-
-            if (
-              height >
-              viewfinderHeight * 0.50
-            ) {
-              height =
-                Math.floor(
-                  viewfinderHeight * 0.30
-                );
-            }
-
-            return {
-              width: width,
-              height: height
-            };
-          },
-
-          disableFlip: true
-        };
-
-        const cameras =
-          await Html5Qrcode.getCameras();
-
-        if (!cameras || cameras.length === 0) {
-          throw new Error(
-            "사용 가능한 카메라를 찾지 못했습니다."
-          );
-        }
-
-        let cameraId =
-          cameras[cameras.length - 1].id;
-
-        const backCamera =
-          cameras.find(function (camera) {
-
-            const label =
-              String(
-                camera.label || ""
-              ).toLowerCase();
-
-            return (
-              label.includes("back") ||
-              label.includes("rear") ||
-              label.includes("environment") ||
-              label.includes("후면")
-            );
-          });
-
-        if (backCamera) {
-          cameraId = backCamera.id;
-        }
-
-        await html5QrCode.start(
-          cameraId,
-          config,
-          barcodeSuccess,
-          function () {
-            // 인식 실패 프레임은 무시
-          }
-        );
-
-        scannerRunning = true;
-
-      }
-      catch (error) {
-
-        scannerRunning = false;
-
-        console.error(error);
-
-        showError(
-          "카메라 실행 오류<br><br>" +
-          "오류명: " +
-          (error.name || "알 수 없음") +
-          "<br><br>" +
-          "오류내용: " +
-          (error.message || String(error))
-        );
-      }
+  if (result.startsWith("+F")) {
+    const numbers = result.substring(2);
+    let kCode = "K";
+    for (let i = 0; i < numbers.length; i++) {
+      kCode += map[numbers[i]] ?? numbers[i];
     }
-
-
-    /*************************************************
-     * 바코드 인식 성공
-     *************************************************/
-
-    async function barcodeSuccess(
-      decodedText
-    ) {
-
-      if (barcodeDetected) {
-        return;
-      }
-
-
-      barcodeDetected = true;
-
-
-      const rawBarcode =
-        String(decodedText || "").trim();
-
-
-      if (!rawBarcode) {
-
-        barcodeDetected = false;
-
-        return;
-
-      }
-
-
-      const convertedBarcode =
-        convertCompanyBarcode(
-          rawBarcode
-        );
-
-
-      await stopScanner();
-
-
-      showSuccess(
-        convertedBarcode
-      );
-
-
-      /*
-       * 창고관리 앱에서 호출된 경우에는
-       * 잠시 성공 화면을 보여준 뒤
-       * 원래 앱으로 자동 복귀한다.
-       */
-
-      if (
-        mode === "scan" ||
-        mode === "in" ||
-        mode === "out"
-      ) {
-
-        setTimeout(
-          function () {
-
-            returnToWarehouse(
-              convertedBarcode
-            );
-
-          },
-          650
-        );
-
-      }
-
-    }
-
-
-    /*************************************************
-     * 회사 바코드 변환
-     *
-     * 예:
-     * +Fxxxxxxxx...
-     * ↓
-     * Kxxxxxxxx...
-     *************************************************/
-
-    function convertCompanyBarcode(
-      rawBarcode
-    ) {
-
-      const result =
-        String(
-          rawBarcode || ""
-        ).trim();
-
-
-      const map = {
-
-        "0": "6",
-        "1": "2",
-        "2": "4",
-        "3": "5",
-        "4": "1",
-
-        "5": "3",
-        "6": "7",
-        "7": "0",
-        "8": "9",
-        "9": "8"
-
-      };
-
-
-      if (
-        result.startsWith("+F")
-      ) {
-
-        const numbers =
-          result.substring(2);
-
-
-        let kCode = "K";
-
-
-        for (
-          let i = 0;
-          i < numbers.length;
-          i++
-        ) {
-
-          kCode +=
-            map[numbers[i]]
-            ?? numbers[i];
-
-        }
-
-
-        return kCode;
-
-      }
-
-
-      return result;
-
-    }
-
-
-    /*************************************************
-     * 스캐너 정지
-     *************************************************/
-
-    async function stopScanner() {
-
-      try {
-
-        if (
-          html5QrCode &&
-          scannerRunning
-        ) {
-
-          await html5QrCode.stop();
-
-        }
-
-      }
-
-      catch (error) {
-
-        console.log(
-          "스캐너 정지:",
-          error
-        );
-
-      }
-
-
-      scannerRunning = false;
-
-    }
-
-
-    /*************************************************
-     * 성공 화면
-     *************************************************/
-
-    function showSuccess(
-      barcode
-    ) {
-
-      document
-        .getElementById("guideBox")
-        .style.display = "none";
-
-
-      document
-        .getElementById("message")
-        .style.display = "none";
-
-
-      document
-        .getElementById("resultBarcode")
-        .textContent = barcode;
-
-
-      const returnMessage =
-        document.getElementById(
-          "returnMessage"
-        );
-
-
-      if (
-        mode === "scan" ||
-        mode === "in" ||
-        mode === "out"
-      ) {
-
-        returnMessage.innerHTML =
-          "바코드를 확인했습니다.<br>" +
-          "창고관리 화면으로 이동합니다...";
-
-
-        document
-          .getElementById("rescanButton")
-          .style.display = "none";
-
-      }
-
-      else {
-
-        returnMessage.innerHTML =
-          "자동스캔 테스트가 정상적으로 작동했습니다.";
-
-
-        document
-          .getElementById("rescanButton")
-          .style.display = "block";
-
-      }
-
-
-      document
-        .getElementById("resultBox")
-        .style.display = "block";
-
-    }
-
-
-    /*************************************************
-     * 결과 화면 숨김
-     *************************************************/
-
-    function hideResult() {
-
-      document
-        .getElementById("resultBox")
-        .style.display = "none";
-
-
-      document
-        .getElementById("rescanButton")
-        .style.display = "block";
-
-    }
-
-
-    /*************************************************
-     * 오류 화면
-     *************************************************/
-
-    function showError(
-      message
-    ) {
-
-      document
-        .getElementById("guideBox")
-        .style.display = "none";
-
-
-      document
-        .getElementById("errorMessage")
-        .innerHTML = message;
-
-
-      document
-        .getElementById("errorBox")
-        .style.display = "block";
-
-    }
-
-
-    function hideError() {
-
-      document
-        .getElementById("errorBox")
-        .style.display = "none";
-
-    }
-
-
-    /*************************************************
-     * 다시 스캔
-     *************************************************/
-
-    async function restartScanner() {
-
-      await stopScanner();
-
-      barcodeDetected = false;
-
-      setTimeout(
-        startScanner,
-        250
-      );
-
-    }
-
-
-    /*************************************************
-     * 창고관리 앱으로 복귀
-     *************************************************/
-
-    function returnToWarehouse(
-      barcode
-    ) {
-
-      const url =
-        new URL(returnUrl);
-
-
-      url.searchParams.set(
-        "mode",
-        mode
-      );
-
-
-      url.searchParams.set(
-        "employee",
-        employee
-      );
-
-
-      url.searchParams.set(
-        "barcode",
-        barcode
-      );
-
-
-      /*
-       * 스캐너 화면을 브라우저 기록에서
-       * 교체하여 뒤로가기 혼선을 줄임
-       */
-
-      window.location.replace(
-        url.toString()
-      );
-
-    }
-
-
-    /*************************************************
-     * 취소
-     *************************************************/
-
-    async function scanPhoto(file) {
-
-  if (!file) {
-    return;
+    return kCode;
   }
+  return result;
+}
+
+function normalizeRaw(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[‐‑‒–—]/g, "-")
+    .toUpperCase();
+}
+
+function looksUseful(value) {
+  const s = normalizeRaw(value);
+  return s.startsWith("+F") || /^K[0-9]{8,30}$/.test(s) || /^[0-9]{10,30}$/.test(s);
+}
+
+async function startLiveScanner() {
+  if (busy || detected) return;
 
   try {
+    liveScanner = new Html5Qrcode("reader");
 
-    // 자동스캔 카메라 잠시 정지
-    await stopScanner();
-
-    document.getElementById("message").innerHTML =
-      "📸 촬영한 사진에서 바코드를 찾고 있습니다...";
-
-    const photoScanner =
-      new Html5Qrcode("reader");
-
-    const decodedText =
-      await photoScanner.scanFile(
-        file,
-        true
-      );
-
-    const convertedBarcode =
-      convertCompanyBarcode(
-        String(decodedText || "").trim()
-      );
-
-    if (!convertedBarcode) {
-      throw new Error("바코드를 찾지 못했습니다.");
-    }
-
-    showSuccess(convertedBarcode);
-
-    if (
-      mode === "scan" ||
-      mode === "in" ||
-      mode === "out"
-    ) {
-
-      setTimeout(function () {
-
-        returnToWarehouse(
-          convertedBarcode
-        );
-
-      }, 650);
-
-    }
-
-  } catch (error) {
-
-    console.error(error);
-
-    document.getElementById("message").innerHTML =
-      "⚠️ 사진에서 바코드를 찾지 못했습니다.<br>버튼을 눌러 다시 촬영해주세요.";
-
-    document.getElementById("guideBox").style.display =
-      "block";
-
-  }
-
-  // 같은 사진을 다시 선택할 수도 있게 초기화
-  document.getElementById("photoInput").value = "";
-
-}
-    function manualInput() {
-
-  const input = prompt(
-    "바코드 또는 QR 번호를 직접 입력해주세요."
-  );
-
-  // 취소
-  if (input === null) {
-    return;
-  }
-
-  const rawBarcode =
-    String(input).trim();
-
-  // 빈칸
-  if (!rawBarcode) {
-    alert("바코드 또는 QR 번호를 입력해주세요.");
-    return;
-  }
-
-  // 회사 바코드 형식이면 기존 방식대로 변환
-  const convertedBarcode =
-    convertCompanyBarcode(rawBarcode);
-
-  if (!convertedBarcode) {
-    alert("입력한 번호를 확인해주세요.");
-    return;
-  }
-
-  // 창고관리 앱에서 들어온 경우
-  if (
-    mode === "scan" ||
-    mode === "in" ||
-    mode === "out"
-  ) {
-
-    returnToWarehouse(
-      convertedBarcode
+    await liveScanner.start(
+      { facingMode: "environment" },
+      {
+        fps: 15,
+        qrbox: function(w, h) {
+          return {
+            width: Math.floor(w * 0.88),
+            height: Math.floor(Math.min(h * 0.55, w * 0.60))
+          };
+        },
+        aspectRatio: 1.333333
+      },
+      async function(decodedText) {
+        if (detected || busy) return;
+        const raw = normalizeRaw(decodedText);
+        if (!raw) return;
+        detected = true;
+        await stopLiveScanner();
+        await acceptDetected(raw, "자동 QR 인식");
+      },
+      function() {}
     );
-
-    return;
+  } catch (e) {
+    showStatus(
+      "카메라 자동 인식 시작 실패",
+      "촬영해서 강력 인식 또는 직접 입력을 사용해주세요."
+    );
   }
-
-  // 테스트 모드일 경우
-  showSuccess(
-    convertedBarcode
-  );
 }
-    
-    async function cancelScan() {
 
-      await stopScanner();
+async function stopLiveScanner() {
+  if (!liveScanner) return;
+  try { await liveScanner.stop(); } catch (e) {}
+  try { await liveScanner.clear(); } catch (e) {}
+  liveScanner = null;
+}
 
+function choosePhoto() {
+  if (busy) return;
+  document.getElementById("photoInput").click();
+}
 
-      if (
-        mode === "test"
-      ) {
+async function analyzePhoto(file) {
+  if (busy) return;
+  busy = true;
+  detected = false;
+  setBusy(true);
+  await stopLiveScanner();
 
-        window.location.reload();
+  try {
+    // 1) html5-qrcode's still-image decoder
+    const h5 = await tryHtml5File(file);
+    if (h5) {
+      setBusy(false);
+      busy = false;
+      await acceptDetected(h5, "사진 QR 인식");
+      return;
+    }
 
+    const imageData = await loadImageData(file);
+
+    // 2) Native BarcodeDetector where supported
+    const nativeValue = await tryBarcodeDetector(imageData.canvas);
+    if (nativeValue) {
+      setBusy(false);
+      busy = false;
+      await acceptDetected(nativeValue, "사진 QR 인식");
+      return;
+    }
+
+    // 3) jsQR original image
+    const qrOriginal = tryJsQr(imageData.data, imageData.width, imageData.height);
+    if (qrOriginal) {
+      setBusy(false);
+      busy = false;
+      await acceptDetected(qrOriginal, "사진 QR 인식");
+      return;
+    }
+
+    // 4) Browser-side robust preprocessing:
+    // grayscale -> contrast stretch -> Gaussian blur -> unsharp mask
+    // -> adaptive threshold, then QR retry.
+    const variants = buildRobustVariants(imageData);
+
+    for (const variant of variants) {
+      const qr = tryJsQr(variant.data, variant.width, variant.height);
+      if (qr) {
+        setBusy(false);
+        busy = false;
+        await acceptDetected(qr, "이미지 보정 QR 인식");
         return;
-
       }
 
-
-      const url =
-        new URL(returnUrl);
-
-
-      if (employee) {
-
-        url.searchParams.set(
-          "employee",
-          employee
-        );
-
+      const native = await tryBarcodeDetector(variant.canvas);
+      if (native) {
+        setBusy(false);
+        busy = false;
+        await acceptDetected(native, "이미지 보정 QR 인식");
+        return;
       }
-
-
-      window.location.replace(
-        url.toString()
-      );
-
     }
 
+    // 5) OCR fallback. Never auto-commit OCR: user must confirm.
+    const candidates = await runOcrCandidates(imageData.canvas, variants);
 
-    /*************************************************
-     * 페이지 종료 시 카메라 정리
-     *************************************************/
+    setBusy(false);
+    busy = false;
 
-    window.addEventListener(
-      "pagehide",
-      function () {
+    if (candidates.length === 0) {
+      alert(
+        "QR과 인쇄 번호를 자동으로 확정하지 못했습니다.\n\n" +
+        "사진을 조금 더 가까이, 정면에서 다시 촬영하거나\n" +
+        "직접 입력을 사용해주세요."
+      );
+      detected = false;
+      await restartLive();
+      return;
+    }
 
-        if (
-          html5QrCode &&
-          scannerRunning
-        ) {
+    await askOcrCandidate(candidates);
 
-          html5QrCode
-            .stop()
-            .catch(function () {});
+  } catch (e) {
+    setBusy(false);
+    busy = false;
+    alert("사진 분석 중 오류가 발생했습니다.\n\n" + (e && e.message ? e.message : String(e)));
+    detected = false;
+    await restartLive();
+  }
+}
 
-        }
+async function tryHtml5File(file) {
+  const id = "tempFileQr_" + Date.now();
+  const temp = document.createElement("div");
+  temp.id = id;
+  temp.style.display = "none";
+  document.body.appendChild(temp);
 
+  const scanner = new Html5Qrcode(id);
+  try {
+    const text = await scanner.scanFile(file, true);
+    try { await scanner.clear(); } catch (e) {}
+    temp.remove();
+    return normalizeRaw(text);
+  } catch (e) {
+    try { await scanner.clear(); } catch (x) {}
+    temp.remove();
+    return "";
+  }
+}
+
+function loadImageData(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = function() {
+      try {
+        // Limit huge phone photos to keep processing stable.
+        const maxSide = 1800;
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h);
+
+        URL.revokeObjectURL(objectUrl);
+        resolve({ canvas, ctx, data, width: w, height: h });
+      } catch (e) {
+        URL.revokeObjectURL(objectUrl);
+        reject(e);
       }
+    };
+
+    img.onerror = function() {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("사진을 열 수 없습니다."));
+    };
+
+    img.src = objectUrl;
+  });
+}
+
+async function tryBarcodeDetector(canvas) {
+  if (!("BarcodeDetector" in window)) return "";
+  try {
+    const formats = await BarcodeDetector.getSupportedFormats();
+    if (!formats.includes("qr_code")) return "";
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+    const results = await detector.detect(canvas);
+    if (results && results.length) {
+      return normalizeRaw(results[0].rawValue || "");
+    }
+  } catch (e) {}
+  return "";
+}
+
+function tryJsQr(imageData, width, height) {
+  try {
+    const result = jsQR(imageData.data, width, height, {
+      inversionAttempts: "attemptBoth"
+    });
+    return result && result.data ? normalizeRaw(result.data) : "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function buildRobustVariants(source) {
+  const gray = toGray(source.data);
+  const stretched = contrastStretch(gray);
+  const blurred = gaussianBlur3x3(stretched, source.width, source.height);
+  const sharpened = unsharpMask(stretched, blurred, 1.8, 0.8);
+  const binary31 = adaptiveThreshold(sharpened, source.width, source.height, 31, 5);
+  const binary51 = adaptiveThreshold(sharpened, source.width, source.height, 51, 7);
+
+  return [
+    makeGrayVariant(stretched, source.width, source.height),
+    makeGrayVariant(sharpened, source.width, source.height),
+    makeGrayVariant(binary31, source.width, source.height),
+    makeGrayVariant(binary51, source.width, source.height)
+  ];
+}
+
+function toGray(imageData) {
+  const src = imageData.data;
+  const gray = new Uint8ClampedArray(imageData.width * imageData.height);
+  for (let i = 0, p = 0; i < src.length; i += 4, p++) {
+    gray[p] = Math.round(0.299 * src[i] + 0.587 * src[i+1] + 0.114 * src[i+2]);
+  }
+  return gray;
+}
+
+function contrastStretch(gray) {
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
+
+  const total = gray.length;
+  const lowTarget = total * 0.01;
+  const highTarget = total * 0.99;
+
+  let acc = 0, low = 0, high = 255;
+  for (let i = 0; i < 256; i++) {
+    acc += hist[i];
+    if (acc >= lowTarget) { low = i; break; }
+  }
+  acc = 0;
+  for (let i = 0; i < 256; i++) {
+    acc += hist[i];
+    if (acc >= highTarget) { high = i; break; }
+  }
+
+  if (high <= low) return new Uint8ClampedArray(gray);
+
+  const out = new Uint8ClampedArray(gray.length);
+  const scale = 255 / (high - low);
+  for (let i = 0; i < gray.length; i++) {
+    out[i] = Math.max(0, Math.min(255, Math.round((gray[i] - low) * scale)));
+  }
+  return out;
+}
+
+// 3x3 Gaussian kernel:
+// 1 2 1
+// 2 4 2  / 16
+// 1 2 1
+function gaussianBlur3x3(src, w, h) {
+  const out = new Uint8ClampedArray(src.length);
+  for (let y = 0; y < h; y++) {
+    const ym = Math.max(0, y - 1);
+    const yp = Math.min(h - 1, y + 1);
+    for (let x = 0; x < w; x++) {
+      const xm = Math.max(0, x - 1);
+      const xp = Math.min(w - 1, x + 1);
+      const sum =
+        src[ym*w+xm] + 2*src[ym*w+x] + src[ym*w+xp] +
+        2*src[y*w+xm] + 4*src[y*w+x] + 2*src[y*w+xp] +
+        src[yp*w+xm] + 2*src[yp*w+x] + src[yp*w+xp];
+      out[y*w+x] = Math.round(sum / 16);
+    }
+  }
+  return out;
+}
+
+function unsharpMask(original, blurred, originalWeight, blurWeight) {
+  const out = new Uint8ClampedArray(original.length);
+  for (let i = 0; i < original.length; i++) {
+    const v = originalWeight * original[i] - blurWeight * blurred[i];
+    out[i] = Math.max(0, Math.min(255, Math.round(v)));
+  }
+  return out;
+}
+
+// Adaptive mean threshold using an integral image.
+// This is the browser equivalent of the local-shadow compensation idea behind
+// cv2.adaptiveThreshold, without depending on a fragile OpenCV.js build.
+function adaptiveThreshold(gray, w, h, blockSize, C) {
+  const r = Math.floor(blockSize / 2);
+  const integral = new Float64Array((w + 1) * (h + 1));
+
+  for (let y = 1; y <= h; y++) {
+    let rowSum = 0;
+    for (let x = 1; x <= w; x++) {
+      rowSum += gray[(y - 1) * w + (x - 1)];
+      integral[y * (w + 1) + x] =
+        integral[(y - 1) * (w + 1) + x] + rowSum;
+    }
+  }
+
+  const out = new Uint8ClampedArray(gray.length);
+
+  for (let y = 0; y < h; y++) {
+    const y1 = Math.max(0, y - r);
+    const y2 = Math.min(h - 1, y + r);
+
+    for (let x = 0; x < w; x++) {
+      const x1 = Math.max(0, x - r);
+      const x2 = Math.min(w - 1, x + r);
+
+      const A = integral[y1 * (w + 1) + x1];
+      const B = integral[y1 * (w + 1) + (x2 + 1)];
+      const D = integral[(y2 + 1) * (w + 1) + x1];
+      const E = integral[(y2 + 1) * (w + 1) + (x2 + 1)];
+
+      const area = (x2 - x1 + 1) * (y2 - y1 + 1);
+      const mean = (E - B - D + A) / area;
+      const v = gray[y * w + x];
+
+      out[y * w + x] = v > (mean - C) ? 255 : 0;
+    }
+  }
+
+  return out;
+}
+
+function makeGrayVariant(gray, w, h) {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const img = ctx.createImageData(w, h);
+
+  for (let i = 0, p = 0; p < gray.length; p++, i += 4) {
+    const v = gray[p];
+    img.data[i] = v;
+    img.data[i+1] = v;
+    img.data[i+2] = v;
+    img.data[i+3] = 255;
+  }
+
+  ctx.putImageData(img, 0, 0);
+  return { canvas, data: img, width: w, height: h };
+}
+
+async function runOcrCandidates(originalCanvas, variants) {
+  const targets = [originalCanvas];
+  if (variants[0]) targets.push(variants[0].canvas);
+  if (variants[1]) targets.push(variants[1].canvas);
+
+  const found = new Set();
+
+  for (const canvas of targets) {
+    try {
+      const result = await Tesseract.recognize(canvas, "eng", {
+        logger: function() {}
+      });
+
+      const text = String(result.data && result.data.text ? result.data.text : "")
+        .toUpperCase()
+        .replace(/[ \t\r\n]/g, "");
+
+      const kMatches = text.match(/K[0-9]{8,30}/g) || [];
+      kMatches.forEach(v => found.add(v));
+
+      // OCR may confuse K with other characters. Long digit sequences are shown
+      // as K candidates, but still require explicit user confirmation.
+      const digitMatches = text.match(/[0-9]{12,30}/g) || [];
+      digitMatches.forEach(v => found.add("K" + v));
+
+    } catch (e) {}
+  }
+
+  return Array.from(found).slice(0, 8);
+}
+
+async function askOcrCandidate(candidates) {
+  let chosen = "";
+
+  if (candidates.length === 1) {
+    const candidate = candidates[0];
+    const ok = confirm(
+      "QR은 읽지 못했지만 인쇄된 번호를 문자로 인식했습니다.\n\n" +
+      candidate +
+      "\n\n⚠️ 흐린 숫자는 3/6/8/9 등이 틀릴 수 있습니다.\n" +
+      "보드에 적힌 번호와 직접 비교해서 맞을 때만 확인을 눌러주세요."
     );
+    if (ok) chosen = candidate;
+  } else {
+    const answer = prompt(
+      "문자 인식 후보가 여러 개입니다.\n" +
+      "보드에 적힌 번호와 비교해서 정확한 번호를 입력해주세요.\n\n" +
+      candidates.map((v, i) => (i + 1) + ". " + v).join("\n"),
+      candidates[0]
+    );
+    if (answer) chosen = normalizeRaw(answer);
+  }
 
-  </script>
+  if (!chosen) {
+    detected = false;
+    await restartLive();
+    return;
+  }
 
+  await acceptDetected(chosen, "OCR 보조 인식");
+}
+
+async function acceptDetected(rawValue, source) {
+  const raw = normalizeRaw(rawValue);
+  if (!raw) {
+    detected = false;
+    await restartLive();
+    return;
+  }
+
+  const converted = convertCompanyBarcode(raw);
+
+  // Live/photo QR is also confirmed before an inventory action.
+  const ok = confirm(
+    source + "\n\n" +
+    "인식 번호: " + raw + "\n" +
+    "처리 번호: " + converted + "\n\n" +
+    "이 번호가 맞습니까?"
+  );
+
+  if (!ok) {
+    detected = false;
+    await restartLive();
+    return;
+  }
+
+  showStatus("✅ 인식 완료", escapeHtml(converted));
+
+  if (mode === "scan" || mode === "in" || mode === "out") {
+    setTimeout(function() {
+      returnToWarehouse(converted);
+    }, 300);
+    return;
+  }
+
+  if (mode === "number") {
+    try {
+      await navigator.clipboard.writeText(converted);
+      alert("✅ 번호가 복사되었습니다.\n\n" + converted);
+    } catch (e) {
+      prompt("아래 번호를 복사해주세요.", converted);
+    }
+    cancelScan();
+    return;
+  }
+
+  // test mode: keep result visible
+  document.getElementById("barcodeInput").value = converted;
+  detected = false;
+}
+
+function openManual() {
+  document.getElementById("inputCard").style.display = "block";
+  document.getElementById("barcodeInput").focus();
+}
+
+function closeManual() {
+  document.getElementById("inputCard").style.display = "none";
+}
+
+async function submitManual() {
+  const input = document.getElementById("barcodeInput");
+  const raw = normalizeRaw(input.value);
+
+  if (!raw) {
+    alert("바코드 또는 QR 번호를 입력해주세요.");
+    input.focus();
+    return;
+  }
+
+  await stopLiveScanner();
+  await acceptDetected(raw, "직접 입력");
+}
+
+function showStatus(title, value) {
+  document.getElementById("statusTitle").textContent = title;
+  document.getElementById("statusValue").innerHTML = value;
+  document.getElementById("statusBox").style.display = "block";
+}
+
+function returnToWarehouse(barcode) {
+  const url = new URL(returnUrl);
+  url.searchParams.set("mode", mode);
+  url.searchParams.set("employee", employee);
+  url.searchParams.set("barcode", barcode);
+  window.location.replace(url.toString());
+}
+
+function cancelScan() {
+  const url = new URL(returnUrl);
+  if (employee) url.searchParams.set("employee", employee);
+  window.location.replace(url.toString());
+}
+
+async function restartLive() {
+  if (mode === "test") return;
+  await new Promise(r => setTimeout(r, 250));
+  await startLiveScanner();
+}
+
+function setBusy(on) {
+  document.getElementById("busy").style.display = on ? "flex" : "none";
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+</script>
 </body>
 </html>
