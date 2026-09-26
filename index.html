@@ -451,6 +451,11 @@
 
     let scannerRunning = false;
 
+    // QR 전용 보조 인식기 상태
+    let qrDetector = null;
+    let qrAssistTimer = null;
+    let qrAssistBusy = false;
+
 
     /*************************************************
      * URL에서 전달받은 값
@@ -635,6 +640,9 @@
 
         scannerRunning = true;
 
+        // html5-qrcode가 놓치는 작은 QR을 브라우저 기본 QR 판독기로 보조 인식
+        startQrAssist();
+
       }
       catch (error) {
 
@@ -799,7 +807,125 @@
      * 스캐너 정지
      *************************************************/
 
+    /*************************************************
+     * QR 전용 보조 자동인식
+     *
+     * - 기존 1D 바코드 인식은 html5-qrcode가 그대로 담당
+     * - 지원 브라우저에서는 BarcodeDetector로 QR만 추가 확인
+     * - QR 결과도 기존 barcodeSuccess()로 보내므로
+     *   +F... -> K... 회사코드 변환/입출고 흐름은 그대로 사용
+     *************************************************/
+
+    async function startQrAssist() {
+
+      stopQrAssist();
+
+      if (!("BarcodeDetector" in window)) {
+        console.log("QR 보조 인식: BarcodeDetector 미지원");
+        return;
+      }
+
+      try {
+
+        const supportedFormats =
+          await BarcodeDetector.getSupportedFormats();
+
+        if (
+          !supportedFormats ||
+          !supportedFormats.includes("qr_code")
+        ) {
+          console.log("QR 보조 인식: qr_code 미지원");
+          return;
+        }
+
+        qrDetector =
+          new BarcodeDetector({
+            formats: ["qr_code"]
+          });
+
+        qrAssistTimer =
+          setInterval(
+            detectQrFromLiveVideo,
+            180
+          );
+
+      }
+      catch (error) {
+        console.log("QR 보조 인식 시작 오류:", error);
+      }
+    }
+
+
+    async function detectQrFromLiveVideo() {
+
+      if (
+        barcodeDetected ||
+        !scannerRunning ||
+        qrAssistBusy ||
+        !qrDetector
+      ) {
+        return;
+      }
+
+      const video =
+        document.querySelector("#reader video");
+
+      if (
+        !video ||
+        video.readyState < 2 ||
+        video.videoWidth === 0 ||
+        video.videoHeight === 0
+      ) {
+        return;
+      }
+
+      qrAssistBusy = true;
+
+      try {
+
+        const results =
+          await qrDetector.detect(video);
+
+        if (
+          results &&
+          results.length > 0
+        ) {
+
+          const rawValue =
+            String(
+              results[0].rawValue || ""
+            ).trim();
+
+          if (rawValue) {
+            stopQrAssist();
+            await barcodeSuccess(rawValue);
+          }
+        }
+
+      }
+      catch (error) {
+        // 프레임 단위 인식 실패는 조용히 무시
+      }
+      finally {
+        qrAssistBusy = false;
+      }
+    }
+
+
+    function stopQrAssist() {
+
+      if (qrAssistTimer) {
+        clearInterval(qrAssistTimer);
+        qrAssistTimer = null;
+      }
+
+      qrAssistBusy = false;
+    }
+
+
     async function stopScanner() {
+
+      stopQrAssist();
 
       try {
 
@@ -1170,6 +1296,8 @@
     window.addEventListener(
       "pagehide",
       function () {
+
+        stopQrAssist();
 
         if (
           html5QrCode &&
