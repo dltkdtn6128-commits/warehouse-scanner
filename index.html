@@ -376,6 +376,56 @@
 </div>
 
 
+  <div id="resultBox">
+
+    <div id="resultTitle">
+      ✅ 바코드 / QR 인식 성공
+    </div>
+
+    <div id="resultBarcode"></div>
+
+    <div id="returnMessage"></div>
+
+    <button
+      id="rescanButton"
+      class="actionButton"
+      type="button"
+      onclick="restartScanner()"
+    >
+      📷 다시 스캔
+    </button>
+
+  </div>
+
+
+  <div id="errorBox">
+
+    <div id="errorTitle">
+      ⚠️ 카메라 실행 오류
+    </div>
+
+    <div id="errorMessage"></div>
+
+    <button
+      class="actionButton"
+      type="button"
+      onclick="restartScanner()"
+    >
+      다시 시도
+    </button>
+
+    <button
+      class="actionButton"
+      id="backButton"
+      type="button"
+      onclick="cancelScan()"
+    >
+      창고관리로 돌아가기
+    </button>
+
+  </div>
+
+
   <script
     src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
   </script>
@@ -499,37 +549,27 @@
 
       barcodeDetected = false;
 
-
       hideResult();
-
       hideError();
-
 
       document
         .getElementById("guideBox")
         .style.display = "block";
 
-
       document
         .getElementById("message")
         .style.display = "block";
 
-
       try {
 
         if (!html5QrCode) {
-
-          html5QrCode =
-            new Html5Qrcode(
-              "reader",
-              false
-            );
-
+          html5QrCode = new Html5Qrcode(
+            "reader",
+            false
+          );
         }
 
-
         const config = {
-
           fps: 12,
 
           qrbox: function (
@@ -542,92 +582,86 @@
                 viewfinderWidth * 0.96
               );
 
-
             let height = 300;
-
 
             if (
               height >
               viewfinderHeight * 0.50
             ) {
-
               height =
                 Math.floor(
                   viewfinderHeight * 0.30
                 );
-
             }
-
 
             return {
               width: width,
               height: height
             };
-
           },
 
           disableFlip: true
-
         };
 
+        const cameras =
+          await Html5Qrcode.getCameras();
+
+        if (!cameras || cameras.length === 0) {
+          throw new Error(
+            "사용 가능한 카메라를 찾지 못했습니다."
+          );
+        }
+
+        let cameraId =
+          cameras[cameras.length - 1].id;
+
+        const backCamera =
+          cameras.find(function (camera) {
+
+            const label =
+              String(
+                camera.label || ""
+              ).toLowerCase();
+
+            return (
+              label.includes("back") ||
+              label.includes("rear") ||
+              label.includes("environment") ||
+              label.includes("후면")
+            );
+          });
+
+        if (backCamera) {
+          cameraId = backCamera.id;
+        }
 
         await html5QrCode.start(
-
-  {
-    facingMode: "environment"
-  },
-
-  config,
-
-  barcodeSuccess,
-
-  function () {
-    // 인식 실패 프레임은 무시
-  }
-
-);
-
+          cameraId,
+          config,
+          barcodeSuccess,
+          function () {
+            // 인식 실패 프레임은 무시
+          }
+        );
 
         scannerRunning = true;
 
-        setTimeout(function () {
-
-  const video =
-    document.querySelector("#reader video");
-
-  if (!video) {
-    alert("진단결과\nvideo 없음");
-    return;
-  }
-
-  alert(
-    "진단결과\n" +
-    "video 있음\n" +
-    "가로: " + video.videoWidth + "\n" +
-    "세로: " + video.videoHeight + "\n" +
-    "paused: " + video.paused + "\n" +
-    "readyState: " + video.readyState
-  );
-
-}, 1500);
-        
       }
-
       catch (error) {
 
         scannerRunning = false;
 
         console.error(error);
 
-
         showError(
-  "카메라 실행 오류<br><br>" +
-  "오류명: " + (error.name || "알 수 없음") + "<br><br>" +
-  "오류내용: " + (error.message || String(error))
-);
-
+          "카메라 실행 오류<br><br>" +
+          "오류명: " +
+          (error.name || "알 수 없음") +
+          "<br><br>" +
+          "오류내용: " +
+          (error.message || String(error))
+        );
       }
-
     }
 
 
