@@ -574,7 +574,7 @@
         await html5QrCode.start(
 
   {
-    facingMode: { exact: "environment" }
+    facingMode: "environment"
   },
 
   config,
@@ -590,6 +590,27 @@
 
         scannerRunning = true;
 
+        setTimeout(function () {
+
+  const video =
+    document.querySelector("#reader video");
+
+  if (!video) {
+    alert("진단결과\nvideo 없음");
+    return;
+  }
+
+  alert(
+    "진단결과\n" +
+    "video 있음\n" +
+    "가로: " + video.videoWidth + "\n" +
+    "세로: " + video.videoHeight + "\n" +
+    "paused: " + video.paused + "\n" +
+    "readyState: " + video.readyState
+  );
+
+}, 1500);
+        
       }
 
       catch (error) {
