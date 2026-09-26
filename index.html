@@ -154,9 +154,9 @@
       z-index: 30;
 
       padding:
-        20px
+        8px
         22px
-        calc(env(safe-area-inset-bottom) + 25px)
+        calc(env(safe-area-inset-bottom) + 8px)
         22px;
 
       background: linear-gradient(
@@ -170,7 +170,7 @@
   width: 100%;
   min-height: 66px;
 
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 
   border: none;
   border-radius: 18px;
@@ -325,105 +325,55 @@
       </div>
     </div>
 
-    <div id="bottomArea">
-      <button
-  id="photoScanButton"
-  type="button"
-  onclick="document.getElementById('photoInput').click()"
->
-  📸 자동인식이 안되면 촬영으로 스캔
-</button>
+<div id="bottomArea">
 
-<input
-  id="photoInput"
-  type="file"
-  accept="image/*"
-  capture="environment"
-  style="display:none"
-  onchange="scanPhoto(this.files[0])"
->
-      <button
-        id="cancelButton"
-        type="button"
-        onclick="cancelScan()"
-      >
-        <button
-  id="manualInputButton"
-  type="button"
-  onclick="manualInput()"
-  style="
-    display:block;
-    width:100%;
-    min-height:66px;
-    margin-bottom:14px;
-    border:none;
-    border-radius:18px;
-    background:#eeeeee;
-    color:#222;
-    font-size:22px;
-    font-weight:bold;
-    cursor:pointer;
-  "
->
-  ⌨️ 바코드 / QR 직접 입력
-</button>
-        
-        ← 창고관리로 돌아가기
-      </button>
-    </div>
+  <button
+    id="photoScanButton"
+    type="button"
+    onclick="document.getElementById('photoInput').click()"
+  >
+    📸 자동인식이 안되면 촬영으로 스캔
+  </button>
 
-  </div>
+  <input
+    id="photoInput"
+    type="file"
+    accept="image/*"
+    capture="environment"
+    style="display:none"
+    onchange="scanPhoto(this.files[0])"
+  >
 
+  <button
+    id="manualInputButton"
+    type="button"
+    onclick="manualInput()"
+    style="
+      display:block;
+      width:100%;
+      min-height:66px;
+      margin-bottom:8px;
+      border:none;
+      border-radius:18px;
+      background:#eeeeee;
+      color:#222;
+      font-size:22px;
+      font-weight:bold;
+      cursor:pointer;
+    "
+  >
+    ⌨️ 바코드 / QR 직접 입력
+  </button>
 
-  <div id="resultBox">
+  <button
+    id="cancelButton"
+    type="button"
+    onclick="cancelScan()"
+  >
+    ← 창고관리로 돌아가기
+  </button>
 
-    <div id="resultTitle">
-      ✅ 바코드 인식 성공
-    </div>
-
-    <div id="resultBarcode"></div>
-
-    <div id="returnMessage"></div>
-
-    <button
-      id="rescanButton"
-      class="actionButton"
-      type="button"
-      onclick="restartScanner()"
-    >
-      📷 다시 스캔
-    </button>
-
-  </div>
-
-
-  <div id="errorBox">
-
-    <div id="errorTitle">
-      ⚠️ 카메라 실행 오류
-    </div>
-
-    <div id="errorMessage"></div>
-
-    <button
-      class="actionButton"
-      id="rescanButton"
-      type="button"
-      onclick="restartScanner()"
-    >
-      다시 시도
-    </button>
-
-    <button
-      class="actionButton"
-      id="backButton"
-      type="button"
-      onclick="cancelScan()"
-    >
-      창고관리로 돌아가기
-    </button>
-
-  </div>
+</div>
 
 
   <script
