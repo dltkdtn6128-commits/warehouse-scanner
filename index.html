@@ -565,41 +565,30 @@
         if (!html5QrCode) {
           html5QrCode = new Html5Qrcode(
             "reader",
-            false
+            {
+              formatsToSupport: [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.CODE_93,
+                Html5QrcodeSupportedFormats.CODABAR,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.ITF,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E
+              ],
+              verbose: false
+            }
           );
         }
 
         const config = {
-          fps: 12,
+          // 작은 QR도 더 자주 확인하도록 프레임 수를 높임
+          fps: 18,
 
-          // 바코드와 QR을 모두 자동 인식할 수 있도록
-          // 화면 중앙의 넓은 영역 전체를 스캔 대상으로 사용
-          qrbox: function (
-            viewfinderWidth,
-            viewfinderHeight
-          ) {
-
-            const width =
-              Math.floor(
-                viewfinderWidth * 0.92
-              );
-
-            const height =
-              Math.floor(
-                Math.min(
-                  viewfinderHeight * 0.62,
-                  width
-                )
-              );
-
-            return {
-              width: width,
-              height: height
-            };
-          },
-
-          // QR/바코드 종류를 제한하지 않고 html5-qrcode가
-          // 지원하는 형식을 자동 판독
+          // qrbox를 지정하지 않아 카메라 전체 화면을 판독합니다.
+          // 화면의 빨간 가이드 박스는 그대로 표시됩니다.
           disableFlip: false
         };
 
