@@ -452,8 +452,16 @@ async function startNumberReader() {
 
     await numberQrReader.start(
       {
-        facingMode: "environment"
-      },
+         facingMode: {
+    exact: "environment"
+  },
+  width: {
+    ideal: 1920
+  },
+  height: {
+    ideal: 1080
+  }
+},
       {
         fps: 20,
 qrbox: function(viewfinderWidth, viewfinderHeight) {
